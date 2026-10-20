@@ -1,0 +1,8 @@
+node_modules
+.next
+data/
+.browser-profiles/
+.env
+next-env.d.ts
+*.tsbuildinfo
+.claude/
