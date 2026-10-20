@@ -57,7 +57,7 @@ tr.row:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
 .muted { color: var(--muted); }
 label { display: block; font-weight: 600; margin: 14px 0 4px; }
 label small { font-weight: 400; color: var(--muted); }
-input[type=text], input[type=number], textarea { width: 100%; }
+input[type=text], input[type=number], input[type=password], input[type=email], textarea { width: 100%; }
 textarea { min-height: 160px; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .checks { display: flex; gap: 18px; flex-wrap: wrap; }

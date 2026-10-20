@@ -2,7 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { Application, DEFAULT_APPLICANT, DEFAULT_PROFILE, Db, Profile, RunLog } from "./types";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+// JOBAGENT_DATA_DIR lets you run the app against a separate data folder (e.g. sample data for demos).
+const DATA_DIR = process.env.JOBAGENT_DATA_DIR || path.join(process.cwd(), "data");
 const DB_FILE = path.join(DATA_DIR, "db.json");
 const PROFILE_FILE = path.join(DATA_DIR, "profile.json");
 

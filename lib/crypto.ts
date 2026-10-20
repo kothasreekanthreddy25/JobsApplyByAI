@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-const KEY_FILE = path.join(process.cwd(), "data", "secret.key");
+const KEY_FILE = path.join(process.env.JOBAGENT_DATA_DIR || path.join(process.cwd(), "data"), "secret.key");
 
 /** Random 256-bit key generated on first use and kept only on this machine. */
 function key(): Buffer {
