@@ -42,8 +42,9 @@ function createOverlay() {
   overlay.once('ready-to-show', () => overlay.showInactive());
 }
 
-function startListening(meeting) {
-  const n = docs.load(meeting.title);
+async function startListening(meeting) {
+  send('status', 'Loading documents…');
+  const n = await docs.load(meeting.title);
   answerer.setMeeting(meeting);
   send('meeting', { title: meeting.title, app: meeting.app, docChunks: n });
   if (!process.env.DEEPGRAM_API_KEY) return send('status', 'Set DEEPGRAM_API_KEY in .env');

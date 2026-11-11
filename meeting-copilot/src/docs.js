@@ -3,7 +3,21 @@
 const fs = require('fs');
 const path = require('path');
 
-const tok = (s) => s.toLowerCase().match(/[a-z0-9]{2,}/g) || [];
+const SUPPORTED = /\.(txt|md|csv|json|pdf|docx)$/i;
+
+async function extractText(file) {
+  const ext = path.extname(file).toLowerCase();
+  if (ext === '.pdf') {
+    const pdf = require('pdf-parse/lib/pdf-parse.js'); // direct path avoids pdf-parse's debug-mode self-test
+    return (await pdf(fs.readFileSync(file))).text;
+  }
+  if (ext === '.docx') {
+    return (await require('mammoth').extractRawText({ path: file })).value;
+  }
+  return fs.readFileSync(file, 'utf8');
+}
+
+const tok =(s) => s.toLowerCase().match(/[a-z0-9]{2,}/g) || [];
 const STOP = new Set('the a an and or of to in is are was were for on with that this it as at by be from what how why when who which do does can you your we our i'.split(' '));
 
 function chunk(text, source, size = 120) {
@@ -21,7 +35,7 @@ function readDir(dir, depth = 0) {
   if (!fs.existsSync(dir)) return files;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
-    if (e.isFile() && /\.(txt|md|csv|json)$/i.test(e.name)) files.push(p);
+    if (e.isFile() && SUPPORTED.test(e.name)) files.push(p);
     else if (e.isDirectory() && depth < 1) files = files.concat(readDir(p, depth + 1));
   }
   return files;
@@ -30,7 +44,7 @@ function readDir(dir, depth = 0) {
 class DocIndex {
   constructor(root) { this.root = path.resolve(root); this.chunks = []; this.df = new Map(); this.avg = 1; }
 
-  load(meetingTitle = '') {
+  async load(meetingTitle = '') {
     const title = meetingTitle.toLowerCase();
     const files = [];
     for (const e of fs.existsSync(this.root) ? fs.readdirSync(this.root, { withFileTypes: true }) : []) {
@@ -39,8 +53,11 @@ class DocIndex {
       else if (e.isDirectory() && title.includes(e.name.toLowerCase())) files.push(...readDir(p));
     }
     this.chunks = [];
-    for (const f of files.filter((f) => /\.(txt|md|csv|json)$/i.test(f))) {
-      this.chunks.push(...chunk(fs.readFileSync(f, 'utf8'), path.basename(f)));
+    for (const f of files.filter((f) => SUPPORTED.test(f) && !path.basename(f).startsWith('~$'))) {
+      try {
+        const text = await extractText(f);
+        this.chunks.push(...chunk(text, path.basename(f)));
+      } catch (e) { console.error(`skipping ${path.basename(f)}: ${e.message}`); }
     }
     this.df = new Map();
     for (const c of this.chunks) for (const t of new Set(c.terms)) this.df.set(t, (this.df.get(t) || 0) + 1);

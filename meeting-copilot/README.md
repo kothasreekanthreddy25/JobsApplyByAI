@@ -24,7 +24,7 @@ npm start
 ```
 
 ## Documents
-- `docs/*.md|txt` - always loaded.
+- `docs/*.pdf|docx|md|txt|csv|json` - always loaded.
 - `docs/<keyword>/...` - loaded only when `<keyword>` appears in the meeting title (e.g. `docs/acme/` for "Acme renewal call").
 
 ## Hotkeys
@@ -40,4 +40,4 @@ npm start
 Transcribing other people's audio is regulated in many places (one-party vs all-party consent), and many employers, interviewers and exam bodies prohibit undisclosed assistance. Use it where you have the right to, and check your meeting's rules.
 
 ## Known MVP limits
-Recurring calendar events aren't expanded; only text docs (md/txt/csv/json) are indexed (add `pdf-parse` for PDFs); one speaker stream (no diarization); Windows-first detection.
+Recurring calendar events aren't expanded; scanned (image-only) PDFs are not read, no OCR; one speaker stream (no diarization); Windows-first detection.
