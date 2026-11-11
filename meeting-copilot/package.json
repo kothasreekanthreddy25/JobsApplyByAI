@@ -1,0 +1,17 @@
+{
+  "name": "meeting-copilot",
+  "version": "0.1.0",
+  "description": "Private meeting copilot: detects meetings, listens, answers questions in a capture-protected overlay",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.60.0",
+    "dotenv": "^16.4.5",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0"
+  }
+}

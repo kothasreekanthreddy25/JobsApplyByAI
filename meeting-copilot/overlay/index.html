@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'" />
+<style>
+  html, body { margin: 0; background: transparent; font: 14px/1.45 "Segoe UI", system-ui, sans-serif; color: #f2f2f2; overflow: hidden; }
+  .card { margin: 6px; padding: 12px 14px; border-radius: 12px; background: rgba(18,18,22,.86); border: 1px solid rgba(255,255,255,.12); }
+  .bar { display: flex; justify-content: space-between; font-size: 11px; color: #9aa; margin-bottom: 8px; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#666; margin-right:6px; }
+  .live .dot { background:#3ddc84; box-shadow:0 0 6px #3ddc84; }
+  .q { font-size: 12px; color: #8ab4ff; margin-bottom: 6px; }
+  .a { white-space: pre-wrap; font-size: 15px; min-height: 60px; }
+  .heard { margin-top: 8px; font-size: 11px; color: #777; max-height: 34px; overflow: hidden; }
+  .lat { color:#777; font-size:11px; }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="bar"><span><span class="dot"></span><span id="status">Idle - waiting for a meeting</span></span><span id="meeting"></span></div>
+    <div class="q" id="q"></div>
+    <div class="a" id="a">Answers to others' questions appear here. Only you can see this window.</div>
+    <div class="lat" id="lat"></div>
+    <div class="heard" id="heard"></div>
+  </div>
+<script src="overlay.js"></script>
+</body>
+</html>
