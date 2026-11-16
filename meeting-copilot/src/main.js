@@ -9,7 +9,20 @@ const { Answerer, isQuestion } = require('./qa');
 
 let overlay;
 let stt = null;
-let clickThrough = true;
+// Overlay preferences persist across runs (position, size, background opacity, font size).
+const fs = require('fs');
+let cfg = { opacity: 0.28, font: 20, interactive: false };
+const cfgPath = () => path.join(app.getPath('userData'), 'overlay.json');
+try { cfg = { ...cfg, ...JSON.parse(fs.readFileSync(cfgPath(), 'utf8')) }; } catch {}
+cfg.interactive = false; // always start locked (click-through)
+let saveTimer;
+function saveCfg() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { cfg.bounds = overlay.getBounds(); fs.writeFileSync(cfgPath(), JSON.stringify(cfg)); } catch {}
+  }, 400);
+}
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const docs = new DocIndex(path.resolve(__dirname, '..', process.env.DOCS_DIR || './docs'));
 const calendar = new Calendar(process.env.CALENDAR_ICS_URL);
 const detector = new MeetingDetector(calendar);
@@ -23,13 +36,21 @@ const answerer = new Answerer({
 
 const send = (ch, payload) => overlay && !overlay.isDestroyed() && overlay.webContents.send(ch, payload);
 
-function createOverlay() {
+function defaultBounds() {
+  // Narrow column, top-center just under the webcam: reading it keeps your eyes near the camera.
   const { workArea } = screen.getPrimaryDisplay();
-  const w = 460, h = 360;
+  const width = 440, height = 230;
+  return { width, height, x: Math.round(workArea.x + (workArea.width - width) / 2), y: workArea.y + 6 };
+}
+const pushCfg = () => { send('cfg', { opacity: cfg.opacity, font: cfg.font, interactive: cfg.interactive }); saveCfg(); };
+
+function createOverlay() {
+  const b = cfg.bounds || defaultBounds();
   overlay = new BrowserWindow({
-    width: w, height: h, x: workArea.x + workArea.width - w - 24, y: workArea.y + 24,
+    ...b,
     frame: false, transparent: true, alwaysOnTop: true, skipTaskbar: true,
-    resizable: true, hasShadow: false, focusable: false, show: false,
+    resizable: false, // transparent windows can't be edge-resized on Windows; we resize via the grip + hotkeys
+    hasShadow: false, focusable: false, show: false,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true },
   });
   // KEY PRIVACY FEATURE: excludes this window from screen capture / screen share / recordings.
@@ -37,7 +58,8 @@ function createOverlay() {
   overlay.setContentProtection(true);
   overlay.setAlwaysOnTop(true, 'screen-saver');
   overlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  overlay.setIgnoreMouseEvents(clickThrough, { forward: true });
+  overlay.setIgnoreMouseEvents(true, { forward: true });
+  overlay.webContents.on('did-finish-load', pushCfg);
   overlay.loadFile(path.join(__dirname, '..', 'overlay', 'index.html'));
   overlay.once('ready-to-show', () => overlay.showInactive());
 }
@@ -102,11 +124,49 @@ app.whenReady().then(async () => {
   detector.on('end', stopListening);
   detector.start();
 
-  ipcMain.on('pcm', (_e, buf) => stt?.send(Buffer.from(buf)));
+  // While the app is speaking, drop incoming audio so it never transcribes (and answers) its own voice.
+  let muted = false, unmuteTimer = null;
+  ipcMain.on('speaking', (_e, on) => {
+    clearTimeout(unmuteTimer);
+    if (on) muted = true;
+    else unmuteTimer = setTimeout(() => (muted = false), 500); // tail so room echo doesn't leak in
+  });
+  ipcMain.on('pcm', (_e, buf) => { if (!muted) stt?.send(Buffer.from(buf)); });
+
+  // Mouse drag / resize from the overlay's handles (only reachable in interactive mode).
+  let start = null;
+  ipcMain.on('win', (_e, kind, p) => {
+    if (kind === 'start') start = overlay.getBounds();
+    else if (kind === 'move' && start) overlay.setBounds({ ...start, x: start.x + p.dx, y: start.y + p.dy });
+    else if (kind === 'resize' && start) overlay.setBounds({ ...start, width: Math.max(260, start.width + p.dx), height: Math.max(120, start.height + p.dy) });
+    else if (kind === 'end') { start = null; saveCfg(); }
+  });
 
   const reg = (k, fn) => globalShortcut.register(k, fn);
   reg('Control+Shift+H', () => (overlay.isVisible() ? overlay.hide() : overlay.showInactive()));
-  reg('Control+Shift+M', () => { clickThrough = !clickThrough; overlay.setIgnoreMouseEvents(clickThrough, { forward: true }); send('status', clickThrough ? 'Click-through ON' : 'Interactive (drag/resize)'); });
+  reg('Control+Shift+M', () => { // lock / unlock: unlocked shows drag + resize handles
+    cfg.interactive = !cfg.interactive;
+    overlay.setIgnoreMouseEvents(!cfg.interactive, { forward: true });
+    pushCfg();
+  });
+  // Keyboard adjustments work even while the overlay is click-through.
+  const nudge = (dx, dy) => { const b = overlay.getBounds(); overlay.setBounds({ ...b, x: b.x + dx, y: b.y + dy }); saveCfg(); };
+  const grow = (dw, dh) => { const b = overlay.getBounds(); overlay.setBounds({ ...b, width: Math.max(260, b.width + dw), height: Math.max(120, b.height + dh) }); saveCfg(); };
+  const S = 40;
+  reg('Control+Alt+Left', () => nudge(-S, 0));
+  reg('Control+Alt+Right', () => nudge(S, 0));
+  reg('Control+Alt+Up', () => nudge(0, -S));
+  reg('Control+Alt+Down', () => nudge(0, S));
+  reg('Control+Alt+Shift+Left', () => grow(-S, 0));
+  reg('Control+Alt+Shift+Right', () => grow(S, 0));
+  reg('Control+Alt+Shift+Up', () => grow(0, -S));
+  reg('Control+Alt+Shift+Down', () => grow(0, S));
+  reg('Control+Alt+]', () => { cfg.opacity = clamp(+(cfg.opacity + 0.08).toFixed(2), 0, 0.85); pushCfg(); });
+  reg('Control+Alt+[', () => { cfg.opacity = clamp(+(cfg.opacity - 0.08).toFixed(2), 0, 0.85); pushCfg(); });
+  reg('Control+Alt+=', () => { cfg.font = clamp(cfg.font + 2, 12, 40); pushCfg(); });
+  reg('Control+Alt+-', () => { cfg.font = clamp(cfg.font - 2, 12, 40); pushCfg(); });
+  reg('Control+Alt+0', () => { overlay.setBounds(defaultBounds()); cfg.opacity = 0.28; cfg.font = 20; pushCfg(); });
+  reg('Control+Shift+V', () => send('voice-toggle')); // spoken answers on/off
   reg('Control+Shift+S', () => detector.toggleManual()); // force start/stop a session
   reg('Control+Shift+Q', () => app.quit());
 });

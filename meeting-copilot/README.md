@@ -29,7 +29,10 @@ npm start
 
 ## Hotkeys
 - `Ctrl+Shift+H` show/hide overlay
-- `Ctrl+Shift+M` toggle click-through vs. drag/resize
+- `Ctrl+Shift+M` unlock/lock: unlocked shows a drag bar and a resize corner (layout is remembered between runs)
+- `Ctrl+Alt+Arrows` move overlay; `Ctrl+Alt+Shift+Arrows` resize it (work while locked)
+- `Ctrl+Alt+[` and `Ctrl+Alt+]` background transparency; `Ctrl+Alt+-` and `Ctrl+Alt+=` font size; `Ctrl+Alt+0` reset
+- `Ctrl+Shift+V` spoken answers on/off (read aloud sentence by sentence; listening is paused while it speaks)
 - `Ctrl+Shift+S` manually start/stop a session
 - `Ctrl+Shift+Q` quit
 

@@ -61,8 +61,8 @@ class Answerer {
     const useOpenAI = !hits.length && !!this.openaiKey; // docs had no good answer -> OpenAI
     const system =
       `You are a private real-time assistant for the user in a meeting "${this.meeting?.title || ''}". ` +
-      `Someone else just asked the user a question (it may be a general/technical concept like "what is a closure?"). Answer immediately and directly, no preamble. Give the answer the user can speak aloud: lead with the direct answer in 1 sentence, ` +
-      `then at most 2 short supporting bullets. Max ~60 words. Prefer facts from the DOCUMENTS and cite as [n]. ` +
+      `Someone else just asked the user a question (it may be a general/technical concept like "what is a closure?"). Answer immediately and directly, no preamble. Format for glanceable reading, plain text, no markdown: line 1 = the direct answer in ONE sentence of at most 14 words; ` +
+      `then at most 3 lines, each a short bullet starting with "- " of at most 9 words. Max ~45 words total. Prefer facts from the DOCUMENTS and cite as [n]. ` +
       `If the documents don't cover it, answer from general knowledge and say "(not in docs)". Never invent figures.\n\n` +
       `MEETING NOTES: ${this.meeting?.description || 'n/a'}\n\nDOCUMENTS:\n${context}`;
     const user = `Recent conversation:\n${this.history.slice(-6).join('\n')}\n\nQUESTION: ${question}`;
