@@ -1,5 +1,5 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
-const { app, BrowserWindow, globalShortcut, ipcMain, screen, session, desktopCapturer, Tray, Menu, nativeImage, dialog, shell } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, screen, session, desktopCapturer, Tray, Menu, nativeImage, dialog, shell, Notification } = require('electron');
 const path = require('path');
 const { MeetingDetector } = require('./meetingDetector');
 const { Calendar } = require('./calendar');
@@ -11,6 +11,8 @@ const config = require('./config');
 const { createLicense, fmt } = require('./license');
 const BUY_URL = process.env.BUY_URL || require('../package.json').buyUrl || '';
 const { generatePack } = require('./prep');
+const { Demo } = require('./demo');
+const { loadQuestions } = require('./questions');
 const Anthropic = require('@anthropic-ai/sdk');
 
 // One copy only: a second launch just opens Settings (avoids stale copies holding the hotkeys).
@@ -95,14 +97,15 @@ function showLicenseWall(reason) {
   send('status', 'License needed');
 }
 
+let listenReady = Promise.resolve(false), firedCount = 0;
 async function startListening(meeting) {
   const lic = license.status();
-  if (lic.status === 'expired') { showLicenseWall(lic.reason); openSettings(); return; }
+  if (lic.status === 'expired') { showLicenseWall(lic.reason); openSettings(); return false; }
   send('status', 'Loading documents…');
   const n = await docs.load(meeting.title);
   answerer.setMeeting(meeting);
   send('meeting', { title: meeting.title, app: meeting.app, docChunks: n });
-  if (!process.env.DEEPGRAM_API_KEY) return send('status', 'Set DEEPGRAM_API_KEY in .env');
+  if (!process.env.DEEPGRAM_API_KEY) { send('status', 'Add your Deepgram key in Settings'); return false; }
   stt = new StreamingSTT(process.env.DEEPGRAM_API_KEY);
   stt.on('ready', () => {
     const l = license.status();
@@ -114,7 +117,7 @@ async function startListening(meeting) {
   // question and has been stable for ~200ms, without waiting for the speaker's silence.
   let fired = '', timer = null;
   const fire = (text) => {
-    fired = text;
+    fired = text; firedCount++;
     answerer.answer(text, {
       onStart: (q) => send('answer-start', q),
       onMeta: (m) => send('answer-meta', m),
@@ -139,6 +142,7 @@ async function startListening(meeting) {
     answerer.note(text);
   });
   answerer.warmup(); // open the HTTPS connection now so the first answer skips TLS setup
+  listenReady = new Promise((res) => { stt.once('ready', () => res(true)); stt.once('error', () => res(false)); setTimeout(() => res(false), 8000); });
   stt.open();
 
   // Trial metering: count live-session time every 5 s; end the session when the trial runs out.
@@ -149,7 +153,15 @@ async function startListening(meeting) {
     if (s.status === 'expired') { stopListening(); showLicenseWall(s.reason); openSettings(); }
     else if (s.status === 'trial' && s.trialLeftSec <= 300 && !warned) { warned = true; send('status', `Trial: ${fmt(s.trialLeftSec)} left`); }
   }, 5000);
+  return true;
 }
+
+const answerHandlers = () => ({
+  onStart: (q) => send('answer-start', q),
+  onMeta: (m) => send('answer-meta', m),
+  onDelta: (d) => send('answer-delta', d),
+  onDone: (err) => send('answer-done', err || null),
+});
 
 function stopListening() {
   clearInterval(meter);
@@ -160,6 +172,131 @@ function stopListening() {
   send('meeting', null);
 }
 
+// ================= Demo mode: scheduled mock interview with an AI interviewer =================
+let mode = 'realtime', demo = null, roomWin = null, demoSession = false, injectTimer = null, askedAtCount = 0;
+const speakWaiters = new Map(); let speakSeq = 0;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Natural voice via Deepgram Aura (same key as speech recognition). Falls back to the Windows voice in the room window.
+async function ttsAura(text) {
+  const key = process.env.DEEPGRAM_API_KEY;
+  if (!key) return null;
+  try {
+    const r = await fetch('https://api.deepgram.com/v1/speak?model=aura-asteria-en&encoding=mp3', {
+      method: 'POST', headers: { Authorization: 'Token ' + key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }), signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) return null;
+    return 'data:audio/mpeg;base64,' + Buffer.from(await r.arrayBuffer()).toString('base64');
+  } catch { return null; }
+}
+
+function roomSpeak(text) {
+  return new Promise(async (resolve) => {
+    if (!roomWin || roomWin.isDestroyed()) return resolve();
+    const id = ++speakSeq;
+    const t = setTimeout(() => { speakWaiters.delete(id); resolve(); }, 45000); // never hang on a voice problem
+    speakWaiters.set(id, () => { clearTimeout(t); speakWaiters.delete(id); resolve(); });
+    const audio = await ttsAura(text);
+    if (roomWin && !roomWin.isDestroyed()) roomWin.webContents.send('r:speak', { id, text, audio });
+    else speakWaiters.get(id)?.();
+  });
+}
+
+function openRoom() {
+  if (roomWin && !roomWin.isDestroyed()) { roomWin.show(); roomWin.focus(); return; }
+  roomWin = new BrowserWindow({
+    width: 900, height: 640, minWidth: 640, minHeight: 520, title: 'Mock Interview Room', autoHideMenuBar: true,
+    icon: path.join(__dirname, '..', 'build', 'icon.png'), backgroundColor: '#10141c',
+    webPreferences: { preload: path.join(__dirname, 'roomPreload.js'), contextIsolation: true },
+  });
+  roomWin.loadFile(path.join(__dirname, '..', 'room', 'index.html'));
+}
+
+function setupDemo() {
+  demo = new Demo({
+    loadQuestions: () => loadQuestions(paths.docs, paths.prep),
+    speak: roomSpeak,
+    // The student admitted the AI interviewer: start listening to the computer's audio, then let it speak.
+    prepare: async () => {
+      demoSession = true;
+      const ok = await startListening({ title: 'Mock interview (demo)', app: 'Demo', description: '' });
+      if (!ok) { demoSession = false; return false; }
+      await listenReady;
+      await sleep(1500); // let audio capture start before the first words
+      return true;
+    },
+  });
+  demo.on('ready', () => {
+    openRoom();
+    send('status', 'Your mock interview is ready: admit the AI interviewer');
+    try { new Notification({ title: 'Mock interview is ready', body: 'Open the room and admit the AI interviewer.' }).show(); } catch { /* notifications are optional */ }
+  });
+  demo.on('asking', () => { askedAtCount = firedCount; clearTimeout(injectTimer); });
+  // Safety net: if the speech-to-text never picked the question up from the audio (muted speakers, no audio device,
+  // audio capture problem), answer from the known question text so the demo still shows an answer.
+  demo.on('spoken', ({ q }) => {
+    clearTimeout(injectTimer);
+    injectTimer = setTimeout(() => {
+      if (demo.state === 'live' && firedCount === askedAtCount) {
+        send('status', 'Audio not picked up: answering from the question text');
+        firedCount++; answerer.answer(q, answerHandlers());
+      }
+    }, 9000);
+  });
+  const finish = () => { clearTimeout(injectTimer); if (demoSession) { demoSession = false; stopListening(); } };
+  demo.on('done', finish);
+  demo.on('error', (e) => { send('status', 'Demo: ' + e.message); finish(); });
+  demo.on('update', (st) => {
+    if (st.state === 'scheduled' && [60, 30, 10].includes(st.secsLeft)) send('status', 'Mock interview starts in ' + (st.secsLeft >= 60 ? '1 minute' : st.secsLeft + ' s'));
+    global.__tray?.setToolTip(st.state === 'scheduled' ? `Meeting Copilot - mock interview in ${Math.floor(st.secsLeft / 60)}:${String(st.secsLeft % 60).padStart(2, '0')}` : 'Meeting Copilot');
+  });
+}
+
+function setMode(m) {
+  mode = m === 'demo' ? 'demo' : 'realtime';
+  config.setMode(mode);
+  if (mode === 'demo') { detector.stop(); if (stt && !demoSession) stopListening(); }
+  else { demo?.cancel(); if (demoSession) { demoSession = false; stopListening(); } detector.start(); }
+  global.__tray && createTrayMenu();
+}
+
+let demoCountCache = { t: 0, n: 0 };
+async function questionCount() {
+  if (Date.now() - demoCountCache.t > 4000) demoCountCache = { t: Date.now(), n: (await loadQuestions(paths.docs, paths.prep)).length };
+  return demoCountCache.n;
+}
+
+function registerDemoIpc() {
+  ipcMain.on('r:spoken', (_e, id) => speakWaiters.get(id)?.());
+  ipcMain.handle('r:state', () => demo.snapshot());
+  ipcMain.handle('r:startNow', () => { demo.startNow(); return true; });
+  ipcMain.handle('r:admit', () => { demo.admit(); return true; }); // runs the whole interview; don't block the call
+  ipcMain.handle('r:next', () => { demo.next(); return true; });
+  ipcMain.handle('r:end', () => { demo.end(); return true; });
+  ipcMain.handle('r:cancel', () => { demo.cancel(); return true; });
+  ipcMain.handle('s:setmode', (_e, m) => { setMode(m); return mode; });
+  ipcMain.handle('s:close', () => { if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close(); return true; });
+  ipcMain.handle('s:demo', async (_e, a = {}) => {
+    if (a.action === 'schedule') { if (mode !== 'demo') setMode('demo'); demo.schedule({ minutes: +a.minutes || 5, count: +a.count || 5, answerSec: +a.answerSec || 40 }); }
+    else if (a.action === 'start') { if (mode !== 'demo') setMode('demo'); demo.startNow(); }
+    else if (a.action === 'cancel') demo.cancel();
+    else if (a.action === 'room') openRoom();
+    return { ...demo.snapshot(), mode, available: await questionCount() };
+  });
+}
+
+// First run: give the student a sample question document so Demo works immediately.
+function seedSampleDocs() {
+  try {
+    const files = fs.existsSync(paths.docs) ? fs.readdirSync(paths.docs) : [];
+    if (!files.length) {
+      fs.mkdirSync(paths.docs, { recursive: true });
+      fs.copyFileSync(path.join(__dirname, '..', 'docs', 'sample-interview-questions.md'), path.join(paths.docs, 'sample-interview-questions.md'));
+    }
+  } catch { /* optional */ }
+}
+
 app.whenReady().then(async () => {
   // Grant system-audio loopback (what other participants say) to the renderer without a picker.
   session.defaultSession.setDisplayMediaRequestHandler(async (_req, cb) => {
@@ -168,14 +305,18 @@ app.whenReady().then(async () => {
   });
 
   build();
+  seedSampleDocs();
+  mode = config.getMode();
   createOverlay();
   createTray();
+  setupDemo();
+  registerDemoIpc();
   registerSettingsIpc();
   if (!config.has().anthropic || !config.has().deepgram) openSettings(); // first run: ask for keys
   await calendar.start();
-  detector.on('start', startListening);
-  detector.on('end', stopListening);
-  detector.start();
+  detector.on('start', (m) => { if (mode === 'realtime') startListening(m); });
+  detector.on('end', () => { if (mode === 'realtime') stopListening(); });
+  if (mode === 'realtime') detector.start();
 
   // While the app is speaking, drop incoming audio so it never transcribes (and answers) its own voice.
   let muted = false, unmuteTimer = null;
@@ -241,19 +382,28 @@ function openSettings() {
   settingsWin.loadFile(path.join(__dirname, '..', 'settings', 'index.html'));
 }
 
-function createTray() {
-  const img = nativeImage.createFromPath(path.join(__dirname, '..', 'build', 'icon.png')).resize({ width: 16, height: 16 });
-  const tray = new Tray(img);
-  tray.setToolTip('Meeting Copilot');
-  tray.setContextMenu(Menu.buildFromTemplate([
+function createTrayMenu() {
+  global.__tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Settings…', click: openSettings },
+    { label: 'Mode', submenu: [
+      { label: 'Realtime (real meetings)', type: 'radio', checked: mode === 'realtime', click: () => setMode('realtime') },
+      { label: 'Demo (mock interview)', type: 'radio', checked: mode === 'demo', click: () => setMode('demo') },
+    ] },
+    { label: 'Open mock interview room', click: openRoom },
     { label: 'Start / stop session  (Ctrl+Shift+S)', click: () => detector.toggleManual() },
     { label: 'Show / hide overlay  (Ctrl+Shift+H)', click: () => (overlay.isVisible() ? overlay.hide() : overlay.showInactive()) },
     { type: 'separator' },
     { label: 'Quit', click: () => app.quit() },
   ]));
-  tray.on('click', openSettings);
+}
+
+function createTray() {
+  const img = nativeImage.createFromPath(path.join(__dirname, '..', 'build', 'icon.png')).resize({ width: 16, height: 16 });
+  const tray = new Tray(img);
+  tray.setToolTip('Meeting Copilot');
   global.__tray = tray; // keep a reference so it isn't garbage-collected
+  createTrayMenu();
+  tray.on('click', openSettings);
 }
 
 async function testKeys() {
@@ -288,7 +438,7 @@ async function testKeys() {
 
 function registerSettingsIpc() {
   const packNames = () => { try { return fs.readdirSync(paths.prep).filter((f) => f.endsWith('.json')).map((f) => f.replace(/\.json$/, '')); } catch { return []; } };
-  ipcMain.handle('s:state', () => ({ keys: config.has(), packs: packNames(), license: license.status(), buyUrl: BUY_URL }));
+  ipcMain.handle('s:state', () => ({ keys: config.has(), packs: packNames(), license: license.status(), buyUrl: BUY_URL, mode }));
   ipcMain.handle('s:activate', (_e, key) => {
     const r = license.activate(key);
     if (r.ok) { detector.current = null; detector.tick(); } // let a waiting meeting start right away

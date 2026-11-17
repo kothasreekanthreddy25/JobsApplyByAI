@@ -73,4 +73,7 @@ const licenseStore = {
   },
 };
 
-module.exports = { applyKeysToEnv, saveKeys, clearKey, has, paths, userDir, licenseStore };
+const getMode = () => (read().mode === 'demo' ? 'demo' : 'realtime');
+const setMode = (m) => { const s = read(); s.mode = m; write(s); };
+
+module.exports = { applyKeysToEnv, saveKeys, clearKey, has, paths, userDir, licenseStore, getMode, setMode };

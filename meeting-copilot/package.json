@@ -8,7 +8,7 @@
     "prep": "node src/prep.js",
     "pack": "electron-builder --win --dir",
     "dist": "electron-builder --win",
-    "test": "node --test tests/license.test.js",
+    "test": "node --test tests/license.test.js tests/questions.test.js tests/demo.test.js",
     "license:make": "node tools/license.js make"
   },
   "dependencies": {
@@ -39,7 +39,9 @@
       "package.json",
       "!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**",
       "!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**",
-      "build/icon.png"
+      "build/icon.png",
+      "room/**/*",
+      "docs/sample-interview-questions.md"
     ],
     "asarUnpack": [
       "**/node_modules/onnxruntime-node/**",

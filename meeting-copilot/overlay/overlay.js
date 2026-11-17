@@ -1,4 +1,5 @@
 const $ = (id) => document.getElementById(id);
+let lastPcm = 0, silenceTimer = null;
 let stream, ctx, proc, t0 = 0, first = false, raw = '', editMode = false, quietTimer, fs = 20;
 
 // ---- Settings pushed from main (opacity, font size, locked/unlocked) ----
@@ -101,7 +102,7 @@ dragger($('grip'), 'resize');
 
 // ---- Audio capture: system loopback = the other participants' voices ----
 window.copilot.on('capture', async (cmd) => {
-  if (cmd === 'stop') { stream?.getTracks().forEach((t) => t.stop()); proc?.disconnect(); ctx?.close(); stream = ctx = proc = null; return; }
+  if (cmd === 'stop') { clearInterval(silenceTimer); stream?.getTracks().forEach((t) => t.stop()); proc?.disconnect(); ctx?.close(); stream = ctx = proc = null; return; }
   if (stream) return;
   try {
     stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
@@ -113,8 +114,13 @@ window.copilot.on('capture', async (cmd) => {
       const f = e.inputBuffer.getChannelData(0);
       const out = new Int16Array(f.length);
       for (let i = 0; i < f.length; i++) out[i] = Math.max(-1, Math.min(1, f[i])) * 0x7fff;
+      lastPcm = performance.now();
       window.copilot.pcm(out.buffer);
     };
+    // Windows loopback capture delivers NOTHING while no sound is playing, so the speech recognizer would never see
+    // the pauses between sentences and would glue them together. Fill quiet moments with real silence.
+    lastPcm = performance.now();
+    silenceTimer = setInterval(() => { if (performance.now() - lastPcm > 200) window.copilot.pcm(new Int16Array(2048).buffer); }, 128);
     src.connect(proc); proc.connect(ctx.destination);
   } catch (e) { flash('Audio capture failed: ' + e.message); }
 });

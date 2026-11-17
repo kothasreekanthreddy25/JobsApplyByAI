@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'self'; media-src 'self' data: blob:; img-src 'self' data:" />
+<title>Mock Interview Room</title>
+<style>
+  :root { --bg:#10141c; --panel:#171d28; --tile:#1e2634; --text:#e9eef8; --muted:#93a1ba; --line:#2a3445; --accent:#5b8cff; --ok:#3ddc84; --bad:#ff6b63; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif; height:100vh; display:flex; flex-direction:column; user-select:none; }
+  header { display:flex; justify-content:space-between; align-items:center; padding:12px 18px; background:var(--panel); border-bottom:1px solid var(--line); }
+  header h1 { font-size:16px; margin:0; font-weight:650; }
+  .pill { font-size:12px; padding:3px 10px; border-radius:99px; border:1px solid var(--line); color:var(--muted); }
+  .pill.live { color:var(--ok); border-color:var(--ok); } .pill.wait { color:#ffcf4d; border-color:#ffcf4d; }
+  main { flex:1; display:flex; flex-direction:column; padding:18px; gap:14px; min-height:0; }
+  .stage { flex:1; display:grid; grid-template-columns:1fr 1fr; gap:14px; min-height:0; }
+  .tile { background:var(--tile); border:1px solid var(--line); border-radius:14px; display:grid; place-items:center; position:relative; }
+  .tile .name { position:absolute; left:12px; bottom:10px; font-size:13px; color:var(--muted); }
+  .avatar { width:104px; height:104px; border-radius:50%; background:#2b3b5e; display:grid; place-items:center; font-size:34px; font-weight:700; color:#cfe0ff; transition:box-shadow .2s, opacity .3s; }
+  .tile.empty .avatar { opacity:.35; }
+  .tile.speaking .avatar { box-shadow:0 0 0 6px rgba(91,140,255,.35), 0 0 0 14px rgba(91,140,255,.15); }
+  .you .avatar { background:#35405a; }
+  .caption { min-height:68px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 16px; font-size:18px; display:flex; align-items:center; }
+  .caption.dim { color:var(--muted); font-size:15px; }
+  .progress { height:5px; background:var(--tile); border-radius:5px; overflow:hidden; } .progress > div { height:100%; background:var(--accent); width:0; transition:width .4s; }
+  .bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .bar .info { flex:1; color:var(--muted); min-width:200px; }
+  button { font:inherit; padding:9px 18px; border-radius:9px; border:1px solid var(--line); background:var(--tile); color:var(--text); cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#08101f; font-weight:700; }
+  button.danger { color:var(--bad); }
+  .hint { font-size:13px; color:var(--muted); border-left:3px solid var(--accent); padding-left:10px; }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<header><h1>Mock Interview Room</h1><span id="pill" class="pill">not started</span></header>
+<main>
+  <div class="stage">
+    <div id="aiTile" class="tile empty"><div class="avatar">AI</div><div class="name" id="aiName">AI Interviewer (waiting)</div></div>
+    <div class="tile you"><div class="avatar">You</div><div class="name">You (student)</div></div>
+  </div>
+  <div id="caption" class="caption dim">Nothing scheduled yet.</div>
+  <div class="progress"><div id="prog"></div></div>
+  <div class="bar">
+    <div class="info" id="info"></div>
+    <button id="startNow" class="primary hidden">Start now</button>
+    <button id="admit" class="primary hidden">Admit AI interviewer</button>
+    <button id="next" class="hidden">Next question</button>
+    <button id="end" class="danger hidden">End interview</button>
+    <button id="cancel" class="hidden">Cancel</button>
+  </div>
+  <div class="hint">Your answers appear in the <b>private overlay</b> at the top of your screen: it is hidden from screen sharing. Read the answer there while the interviewer talks. Keep your speakers or headphones on, because the app listens to the sound your computer plays.</div>
+</main>
+<script src="room.js"></script>
+</body>
+</html>

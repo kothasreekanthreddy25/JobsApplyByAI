@@ -14,7 +14,7 @@
   section { background: var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin-bottom:16px; }
   h2 { font-size: 15px; margin: 0 0 4px; } .hint { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
   label { display:block; font-weight:600; font-size:13px; margin: 12px 0 4px; }
-  input[type=password], input[type=text], textarea { width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--text); font:inherit; }
+  input[type=password], input[type=text], input[type=number], textarea { width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--text); font:inherit; }
   textarea { min-height: 110px; resize: vertical; }
   button { font:inherit; padding:8px 14px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--text); cursor:pointer; }
   button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
@@ -26,6 +26,10 @@
   .file { color:var(--muted); font-size:13px; max-width: 320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   kbd { background:var(--bg); border:1px solid var(--line); border-radius:5px; padding:1px 6px; font:12px "Cascadia Mono",Consolas,monospace; }
   table { border-collapse: collapse; width:100%; } td { padding:4px 0; vertical-align: top; } td:first-child { width: 46%; }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .seg button { border:0; border-radius:0; padding:9px 24px; background:var(--card); }
+  .seg button.on { background:var(--accent); color:#fff; font-weight:600; }
+  .row label { display:inline-flex; align-items:center; gap:6px; font-weight:500; }
   .notice { font-size:12.5px; color:var(--muted); border-left:3px solid var(--accent); padding-left:10px; }
 </style>
 </head>
@@ -35,6 +39,29 @@
   <p class="sub">Private overlay that listens to your meeting or mock interview and answers questions. Only you can see it.</p>
 
   <section>
+    <h2>Mode</h2>
+    <div class="seg" role="group" aria-label="Mode"><button id="modeReal">Realtime</button><button id="modeDemo">Demo</button></div>
+    <p id="modeText" class="hint" style="margin-top:10px"></p>
+    <div id="demoPanel" style="display:none">
+      <div class="row">
+        <label style="margin:0">Start in <input id="dMin" type="number" min="0" max="120" value="5" style="width:64px" /> min</label>
+        <label style="margin:0">Questions <input id="dCount" type="number" min="1" max="30" value="5" style="width:64px" /></label>
+        <label style="margin:0">Seconds per question <input id="dSec" type="number" min="10" max="300" value="40" style="width:70px" /></label>
+      </div>
+      <div class="row">
+        <button id="dSchedule" class="primary">Schedule mock interview</button>
+        <button id="dNow">Start now</button>
+        <button id="dCancel">Cancel</button>
+        <button id="dRoom">Open interview room</button>
+        <button id="dDocs">Open questions folder</button>
+      </div>
+      <div id="dStatus" class="msg"></div>
+      <div id="dQ" class="hint"></div>
+      <p id="dNote" class="hint" style="display:none"></p>
+    </div>
+  </section>
+
+  <section id="secLicense">
     <h2>License <span id="licBadge" class="badge">checking…</span></h2>
     <p id="licText" class="hint"></p>
     <label for="licKey">License key</label>
@@ -43,7 +70,7 @@
     <div id="licMsg" class="msg"></div>
   </section>
 
-  <section>
+  <section id="secKeys">
     <h2>1. Your API keys <span id="keysBadge" class="badge">checking…</span></h2>
     <p class="hint">Stored encrypted on this computer only. Leave a box empty to keep the saved key.</p>
     <label for="anthropic">Anthropic key (writes the answers)</label>
@@ -56,7 +83,7 @@
     <div id="keysMsg" class="msg"></div>
   </section>
 
-  <section>
+  <section id="secPrep">
     <h2>2. Interview prep pack <span id="packBadge" class="badge">none yet</span></h2>
     <p class="hint">Choose your resume and paste the job description. The app writes ~35 likely questions with answers based on your real experience, so answers appear instantly during practice. Takes about a minute and needs internet once.</p>
     <div class="row"><button id="pickResume">Choose resume (PDF, Word, text)</button><span id="resumeName" class="file">no file chosen</span></div>
@@ -69,13 +96,13 @@
     <div id="packList" class="hint"></div>
   </section>
 
-  <section>
+  <section id="secDocs">
     <h2>3. Reference documents</h2>
     <p class="hint">Put PDF, Word, text or Markdown files here (product notes, study material). Put files in a sub-folder named after a meeting keyword to use them only for that meeting.</p>
     <div class="row"><button id="openDocs">Open documents folder</button></div>
   </section>
 
-  <section>
+  <section id="secUse">
     <h2>4. Use it</h2>
     <div class="row"><button id="startSession" class="primary">Start / stop a session now</button><span class="hint" style="margin:0">It also starts by itself when Zoom, Teams, Meet or Webex shows a meeting.</span></div>
     <table style="margin-top:14px">

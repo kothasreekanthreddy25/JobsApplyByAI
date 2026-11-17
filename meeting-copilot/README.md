@@ -87,3 +87,12 @@ node tools/license.js verify <key>
 **Limits (no server involved):** keys are checked offline, so a key can be shared and an expired-trial machine can be reset by wiping app data. The trial counter is stored encrypted in two places to stop casual resets. For hard enforcement, add an activation server that binds a key to one machine (and can revoke keys); keys issued today would keep working with it.
 
 Run the tests with `npm test`.
+
+## Modes: Realtime and Demo
+Switch in Settings (top section) or from the tray menu (Mode).
+
+- **Realtime:** waits for a real meeting (Zoom, Teams, Meet, Webex are detected automatically, or press `Ctrl+Shift+S`). Questions heard in the meeting are answered from your documents and prep pack first; if those don't cover it, the app asks OpenAI (when `OPENAI_API_KEY` is set) and falls back to Claude.
+- **Demo:** schedules a mock interview (default: starts in 5 minutes, 5 questions, 40 s per question; all adjustable). At the start time a **Mock Interview Room** window opens and a notification appears. The student clicks **Admit AI interviewer**; it greets them and asks random questions taken from the documents in the `docs` folder (any PDF/Word/text/Markdown file; a question is a line ending in `?` or starting with "Tell me", "Describe", etc.; lines starting with `A:` are treated as answers). The app hears the interviewer through the computer's sound output, exactly like a real call, and the answers appear in the hidden overlay. The voice is Deepgram Aura (same key as speech recognition), with the Windows voice as a fallback. If the audio isn't picked up within 9 s, the app answers from the known question text so the demo never stalls.
+- A sample question file (`docs/sample-interview-questions.md`) is created on first run so Demo works immediately.
+
+In Demo mode the Settings window shows only the demo controls: API keys, license, prep pack, documents and hotkeys are hidden (a section reappears only if the demo cannot run without it, e.g. keys not saved yet or an expired license). Clicking **Schedule mock interview** or **Start now** closes the window; the tray tooltip shows the countdown, and a notification plus the room window appear at the start time.

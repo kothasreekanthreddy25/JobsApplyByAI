@@ -28,8 +28,81 @@ $('activate').onclick = async () => {
 };
 $('buy').onclick = () => window.app.buy();
 
+// ---- Mode toggle (Realtime / Demo) ----
+let currentMode = 'realtime';
+const MODE_TEXT = {
+  realtime: 'Waits for a real meeting (Zoom, Teams, Meet or Webex) or <Ctrl+Shift+S>. When someone asks a question, the answer comes from your documents and prep pack first; if they do not cover it, the app asks OpenAI (when you added a key) and uses Claude as a backup.',
+  demo: 'Schedules a mock interview. When the time comes, a room opens and you admit an AI interviewer. It asks random questions from the documents in your docs folder, the app hears them, and the answers appear in your hidden overlay.',
+};
+let lastState = null;   // latest settings state (keys saved? license?)
+let keysMissing = false;
+function showMode(m) {
+  currentMode = m;
+  $('modeReal').classList.toggle('on', m === 'realtime');
+  $('modeDemo').classList.toggle('on', m === 'demo');
+  $('modeText').textContent = MODE_TEXT[m].replace('<Ctrl+Shift+S>', 'Ctrl+Shift+S');
+  $('demoPanel').style.display = m === 'demo' ? '' : 'none';
+  applyView();
+  if (m === 'demo') pollDemo();
+}
+
+// Demo mode = a clean screen: only the demo controls. Keys / license / prep / docs / hotkeys are hidden,
+// except a section the demo cannot run without (missing API keys, or an expired license).
+function applyView() {
+  const demo = currentMode === 'demo', s = lastState;
+  const show = (id, on) => { $(id).style.display = on ? '' : 'none'; };
+  keysMissing = !!s && !(s.keys.anthropic && s.keys.deepgram);
+  const licenseNeeded = !!s && s.license.status === 'expired';
+  show('secKeys', !demo || keysMissing);
+  show('secLicense', !demo || licenseNeeded);
+  for (const id of ['secPrep', 'secDocs', 'secUse']) show(id, !demo);
+  const note = $('dNote');
+  if (demo && keysMissing) { note.style.display = ''; note.textContent = 'The demo needs your API keys once. Save them below, then you can schedule the interview.'; }
+  else if (demo && licenseNeeded) { note.style.display = ''; note.textContent = 'Your trial has ended. Enter a license key below to continue.'; }
+  else if (demo) { note.style.display = ''; note.textContent = 'API keys and license are already set, so they are hidden. Switch to Realtime to change them.'; }
+  else note.style.display = 'none';
+  $('dSchedule').disabled = demo && (keysMissing || licenseNeeded);
+  $('dNow').disabled = demo && (keysMissing || licenseNeeded);
+}
+$('modeReal').onclick = async () => { await window.app.setMode('realtime'); showMode('realtime'); };
+$('modeDemo').onclick = async () => { await window.app.setMode('demo'); showMode('demo'); };
+
+const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+async function pollDemo(action) {
+  const d = await window.app.demo(action || {});
+  const t = {
+    idle: 'No mock interview scheduled.',
+    scheduled: `Starts in ${mmss(d.secsLeft)}. A room window will open and you will get a notification.`,
+    invited: 'Ready! Open the interview room and admit the AI interviewer.',
+    live: `Interview in progress: question ${d.index} of ${d.total}.`,
+    done: 'Finished. Schedule another any time.',
+  }[d.state] || '';
+  say('dStatus', t, d.state === 'invited' || d.state === 'live' ? true : undefined);
+  $('dQ').textContent = d.available
+    ? `${d.available} question${d.available === 1 ? '' : 's'} found in your documents folder. The AI interviewer picks from them at random.`
+    : 'No questions found yet. Click "Open questions folder" and add a file that lists interview questions (one per line).';
+  $('dSchedule').disabled = d.state === 'live' || keysMissing || (lastState?.license.status === 'expired');
+  return d;
+}
+setInterval(() => { if (currentMode === 'demo' && document.visibilityState === 'visible') pollDemo(); }, 1000);
+// "Submit": schedule the interview, then close this window. A notification, the tray tooltip and the room window
+// take over from here; reopen Settings from the tray icon any time.
+$('dSchedule').onclick = async () => {
+  const d = await pollDemo({ action: 'schedule', minutes: $('dMin').value, count: $('dCount').value, answerSec: $('dSec').value });
+  if (d.state === 'scheduled') window.app.closeWindow();
+};
+$('dNow').onclick = async () => {
+  const d = await pollDemo({ action: 'start' });
+  if (d.state === 'scheduled' || d.state === 'invited') window.app.closeWindow();
+};
+$('dDocs').onclick = () => window.app.openFolder('docs');
+$('dCancel').onclick = () => pollDemo({ action: 'cancel' });
+$('dRoom').onclick = () => pollDemo({ action: 'room' });
+
 async function refresh() {
   const s = await window.app.state();
+  lastState = s;
+  showMode(s.mode || 'realtime');
   showLicense(s.license, s.buyUrl);
   const k = $('keysBadge');
   const ready = s.keys.anthropic && s.keys.deepgram;
