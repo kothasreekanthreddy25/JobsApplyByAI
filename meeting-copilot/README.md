@@ -58,3 +58,14 @@ How the live app uses it, per question:
 3. **Unrelated:** normal flow (your documents, then AI).
 
 Matching is by meaning, not exact words or grammar, using a small local model (~25 MB, downloaded on first run to `.models/`, then offline). Tune with `PREP_HIGH` / `PREP_MID` in `.env`.
+
+## Building the one-click installer (Windows)
+```
+npm install
+npm start          # once, so the local matching model is downloaded into .models/
+npm run dist       # produces dist/Meeting Copilot Setup <version>.exe (~150 MB)
+```
+- The installer is per-user (no admin rights), adds Desktop and Start Menu shortcuts, and ships the matching model so it works offline.
+- Users add their own API keys on the first-run Settings screen; keys are stored encrypted (Windows DPAPI) in `%APPDATA%/Meeting Copilot`, never inside the installer.
+- Not code-signed yet: Windows SmartScreen will warn until a signing certificate is configured. Do not commit `dist/` (too large for GitHub); upload the `.exe` to a release or your own download page.
+- `npm run pack` builds only the unpacked app folder (faster, for testing).

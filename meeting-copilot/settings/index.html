@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'self'" />
+<title>Meeting Copilot</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1c2330; --muted:#657089; --line:#e3e7ee; --accent:#2f6df6; --ok:#17a35a; --bad:#d6403a; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12151b; --card:#1a1f28; --text:#e8ecf4; --muted:#8e99b0; --line:#2a313d; --accent:#5b8cff; --ok:#3ddc84; --bad:#ff6b63; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif; }
+  main { max-width: 680px; margin: 0 auto; padding: 24px 20px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; } .sub { color: var(--muted); margin: 0 0 20px; }
+  section { background: var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin-bottom:16px; }
+  h2 { font-size: 15px; margin: 0 0 4px; } .hint { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+  label { display:block; font-weight:600; font-size:13px; margin: 12px 0 4px; }
+  input[type=password], input[type=text], textarea { width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--text); font:inherit; }
+  textarea { min-height: 110px; resize: vertical; }
+  button { font:inherit; padding:8px 14px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--text); cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  button:disabled { opacity:.5; cursor: default; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+  .badge { font-size:12px; padding:2px 8px; border-radius:99px; border:1px solid var(--line); color:var(--muted); }
+  .badge.ok { color:var(--ok); border-color:var(--ok); } .badge.bad { color:var(--bad); border-color:var(--bad); }
+  .msg { margin-top:10px; font-size:13px; white-space:pre-wrap; } .ok { color:var(--ok); } .err { color:var(--bad); }
+  .file { color:var(--muted); font-size:13px; max-width: 320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  kbd { background:var(--bg); border:1px solid var(--line); border-radius:5px; padding:1px 6px; font:12px "Cascadia Mono",Consolas,monospace; }
+  table { border-collapse: collapse; width:100%; } td { padding:4px 0; vertical-align: top; } td:first-child { width: 46%; }
+  .notice { font-size:12.5px; color:var(--muted); border-left:3px solid var(--accent); padding-left:10px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Meeting Copilot</h1>
+  <p class="sub">Private overlay that listens to your meeting or mock interview and answers questions. Only you can see it.</p>
+
+  <section>
+    <h2>1. Your API keys <span id="keysBadge" class="badge">checking…</span></h2>
+    <p class="hint">Stored encrypted on this computer only. Leave a box empty to keep the saved key.</p>
+    <label for="anthropic">Anthropic key (writes the answers)</label>
+    <input id="anthropic" type="password" autocomplete="off" placeholder="sk-ant-…" />
+    <label for="deepgram">Deepgram key (turns speech into text)</label>
+    <input id="deepgram" type="password" autocomplete="off" placeholder="paste key" />
+    <label for="openai">OpenAI key <span class="badge">optional</span></label>
+    <input id="openai" type="password" autocomplete="off" placeholder="only used as a backup" />
+    <div class="row"><button id="saveKeys" class="primary">Save and test keys</button></div>
+    <div id="keysMsg" class="msg"></div>
+  </section>
+
+  <section>
+    <h2>2. Interview prep pack <span id="packBadge" class="badge">none yet</span></h2>
+    <p class="hint">Choose your resume and paste the job description. The app writes ~35 likely questions with answers based on your real experience, so answers appear instantly during practice. Takes about a minute and needs internet once.</p>
+    <div class="row"><button id="pickResume">Choose resume (PDF, Word, text)</button><span id="resumeName" class="file">no file chosen</span></div>
+    <label for="jd">Job description (paste the text)</label>
+    <textarea id="jd" placeholder="Paste the full job posting here"></textarea>
+    <label for="packName">Name for this pack</label>
+    <input id="packName" type="text" placeholder="e.g. acme-backend" />
+    <div class="row"><button id="makePack" class="primary">Create prep pack</button><button id="openPrep">Open prep folder</button></div>
+    <div id="packMsg" class="msg"></div>
+    <div id="packList" class="hint"></div>
+  </section>
+
+  <section>
+    <h2>3. Reference documents</h2>
+    <p class="hint">Put PDF, Word, text or Markdown files here (product notes, study material). Put files in a sub-folder named after a meeting keyword to use them only for that meeting.</p>
+    <div class="row"><button id="openDocs">Open documents folder</button></div>
+  </section>
+
+  <section>
+    <h2>4. Use it</h2>
+    <div class="row"><button id="startSession" class="primary">Start / stop a session now</button><span class="hint" style="margin:0">It also starts by itself when Zoom, Teams, Meet or Webex shows a meeting.</span></div>
+    <table style="margin-top:14px">
+      <tr><td><kbd>Ctrl+Shift+S</kbd></td><td>start / stop a session</td></tr>
+      <tr><td><kbd>Ctrl+Shift+H</kbd></td><td>show / hide the overlay</td></tr>
+      <tr><td><kbd>Ctrl+Shift+M</kbd></td><td>unlock to drag / resize, press again to lock</td></tr>
+      <tr><td><kbd>Ctrl+Alt</kbd> + arrows</td><td>move the overlay (add <kbd>Shift</kbd> to resize)</td></tr>
+      <tr><td><kbd>Ctrl+Alt+[</kbd> <kbd>]</kbd> / <kbd>-</kbd> <kbd>=</kbd></td><td>background transparency / font size</td></tr>
+      <tr><td><kbd>Ctrl+Shift+V</kbd></td><td>read answers aloud on / off</td></tr>
+      <tr><td><kbd>Ctrl+Shift+Q</kbd></td><td>quit</td></tr>
+    </table>
+    <p class="notice" style="margin-top:14px">Recording or transcribing other people's voices needs their consent in many places, and many interviews and exams forbid outside help. Use this where you are allowed to.</p>
+  </section>
+</main>
+<script src="settings.js"></script>
+</body>
+</html>

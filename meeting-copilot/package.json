@@ -5,7 +5,9 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "prep": "node src/prep.js"
+    "prep": "node src/prep.js",
+    "pack": "electron-builder --win --dir",
+    "dist": "electron-builder --win"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.60.0",
@@ -16,6 +18,61 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "electron": "^38.0.0"
+    "electron": "^38.0.0",
+    "electron-builder": "^25.1.8",
+    "rcedit": "^4.0.1"
+  },
+  "author": "Meeting Copilot",
+  "build": {
+    "appId": "com.meetingcopilot.app",
+    "productName": "Meeting Copilot",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "overlay/**/*",
+      "settings/**/*",
+      "build/icon.png",
+      "package.json",
+      "!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**",
+      "!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**",
+      "build/icon.png"
+    ],
+    "asarUnpack": [
+      "**/node_modules/onnxruntime-node/**",
+      "**/node_modules/sharp/**",
+      "**/node_modules/@img/**"
+    ],
+    "extraResources": [
+      {
+        "from": ".models",
+        "to": "models"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false,
+      "shortcutName": "Meeting Copilot",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    },
+    "afterPack": "build/afterPack.js"
   }
 }

@@ -1,5 +1,5 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
-const { app, BrowserWindow, globalShortcut, ipcMain, screen, session, desktopCapturer } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, screen, session, desktopCapturer, Tray, Menu, nativeImage, dialog, shell } = require('electron');
 const path = require('path');
 const { MeetingDetector } = require('./meetingDetector');
 const { Calendar } = require('./calendar');
@@ -7,6 +7,13 @@ const { DocIndex } = require('./docs');
 const { StreamingSTT } = require('./stt');
 const { Answerer, isQuestion } = require('./qa');
 const { PrepBank } = require('./prepBank');
+const config = require('./config');
+const { generatePack } = require('./prep');
+const Anthropic = require('@anthropic-ai/sdk');
+
+// One copy only: a second launch just opens Settings (avoids stale copies holding the hotkeys).
+if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
+app.setAppUserModelId('com.meetingcopilot.app');
 
 let overlay;
 let stt = null;
@@ -24,18 +31,27 @@ function saveCfg() {
   }, 400);
 }
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-const docs = new DocIndex(path.resolve(__dirname, '..', process.env.DOCS_DIR || './docs'));
+let docs, prep, answerer, paths;
 const calendar = new Calendar(process.env.CALENDAR_ICS_URL);
 const detector = new MeetingDetector(calendar);
-const prep = new PrepBank(path.resolve(__dirname, '..', process.env.PREP_DIR || './prep'));
-const answerer = new Answerer({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-  model: process.env.ANSWER_MODEL || 'claude-haiku-5-5',
-  docs,
-  prep,
-  openaiKey: process.env.OPENAI_API_KEY,
-  openaiModel: process.env.OPENAI_MODEL,
-});
+
+// (Re)build everything that depends on keys and folders. Called at start and after keys change.
+function build() {
+  config.applyKeysToEnv();
+  paths = config.paths();
+  process.env.MODEL_CACHE = paths.models;
+  if (app.isPackaged) process.env.MODEL_OFFLINE = '1'; // installer ships the matching model
+  docs = new DocIndex(paths.docs);
+  prep = new PrepBank(paths.prep);
+  answerer = new Answerer({
+    apiKey: process.env.ANTHROPIC_API_KEY || 'missing',
+    model: process.env.ANSWER_MODEL || 'claude-haiku-5-5',
+    docs, prep,
+    openaiKey: process.env.OPENAI_API_KEY,
+    openaiModel: process.env.OPENAI_MODEL,
+  });
+  prep.load().then((n) => { if (n) send('status', `Prep pack ready: ${n} question phrasings`); }).catch((e) => send('status', 'Prep pack unavailable: ' + e.message));
+}
 
 const send = (ch, payload) => overlay && !overlay.isDestroyed() && overlay.webContents.send(ch, payload);
 
@@ -123,9 +139,11 @@ app.whenReady().then(async () => {
     cb({ video: sources[0], audio: 'loopback' });
   });
 
+  build();
   createOverlay();
-  // Load the prepared-answer bank in the background (first run downloads a ~25 MB local model).
-  prep.load().then((n) => { if (n) send('status', `Prep pack ready: ${n} question phrasings`); }).catch((e) => send('status', 'Prep pack unavailable: ' + e.message));
+  createTray();
+  registerSettingsIpc();
+  if (!config.has().anthropic || !config.has().deepgram) openSettings(); // first run: ask for keys
   await calendar.start();
   detector.on('start', startListening);
   detector.on('end', stopListening);
@@ -179,4 +197,87 @@ app.whenReady().then(async () => {
 });
 
 app.on('will-quit', () => globalShortcut.unregisterAll());
-app.on('window-all-closed', () => app.quit());
+app.on('window-all-closed', () => {}); // keep running in the tray; quit via tray menu or Ctrl+Shift+Q
+app.on('second-instance', () => openSettings());
+
+// ---------------- Settings window, tray, IPC ----------------
+let settingsWin = null;
+function openSettings() {
+  if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.show(); settingsWin.focus(); return; }
+  settingsWin = new BrowserWindow({
+    width: 740, height: 860, title: 'Meeting Copilot', autoHideMenuBar: true,
+    icon: path.join(__dirname, '..', 'build', 'icon.png'),
+    webPreferences: { preload: path.join(__dirname, 'settingsPreload.js'), contextIsolation: true },
+  });
+  settingsWin.setContentProtection(true); // keep your keys / resume out of screen shares too
+  settingsWin.loadFile(path.join(__dirname, '..', 'settings', 'index.html'));
+}
+
+function createTray() {
+  const img = nativeImage.createFromPath(path.join(__dirname, '..', 'build', 'icon.png')).resize({ width: 16, height: 16 });
+  const tray = new Tray(img);
+  tray.setToolTip('Meeting Copilot');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Settings…', click: openSettings },
+    { label: 'Start / stop session  (Ctrl+Shift+S)', click: () => detector.toggleManual() },
+    { label: 'Show / hide overlay  (Ctrl+Shift+H)', click: () => (overlay.isVisible() ? overlay.hide() : overlay.showInactive()) },
+    { type: 'separator' },
+    { label: 'Quit', click: () => app.quit() },
+  ]));
+  tray.on('click', openSettings);
+  global.__tray = tray; // keep a reference so it isn't garbage-collected
+}
+
+async function testKeys() {
+  const out = [];
+  if (!process.env.ANTHROPIC_API_KEY) out.push({ name: 'Anthropic', ok: false, note: 'no key saved' });
+  else {
+    try {
+      await new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }).messages.create({ model: process.env.ANSWER_MODEL || 'claude-haiku-5-5', max_tokens: 1, thinking: { type: 'disabled' }, messages: [{ role: 'user', content: 'hi' }] });
+      out.push({ name: 'Anthropic', ok: true, note: 'works' });
+    } catch (e) { out.push({ name: 'Anthropic', ok: false, note: e.status === 401 ? 'key rejected' : /credit/i.test(e.message || '') ? 'no credit on the account' : (e.message || 'failed').slice(0, 90) }); }
+  }
+  if (!process.env.DEEPGRAM_API_KEY) out.push({ name: 'Deepgram', ok: false, note: 'no key saved' });
+  else {
+    out.push(await new Promise((resolve) => {
+      const t = new StreamingSTT(process.env.DEEPGRAM_API_KEY);
+      let timer;
+      const done = (ok, note) => { clearTimeout(timer); t.close(); resolve({ name: 'Deepgram', ok, note }); };
+      timer = setTimeout(() => done(false, 'no response (check internet)'), 8000);
+      t.on('ready', () => done(true, 'works'));
+      t.on('error', (e) => done(false, /401|403/.test(e.message) ? 'key rejected' : e.message.slice(0, 90)));
+      t.open();
+    }));
+  }
+  if (process.env.OPENAI_API_KEY) {
+    try {
+      const r = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: 'Bearer ' + process.env.OPENAI_API_KEY } });
+      out.push({ name: 'OpenAI', ok: r.ok, optional: true, note: r.ok ? 'works' : r.status === 401 ? 'key rejected (optional, Claude is used instead)' : 'error ' + r.status });
+    } catch { out.push({ name: 'OpenAI', ok: false, optional: true, note: 'unreachable' }); }
+  }
+  return out;
+}
+
+function registerSettingsIpc() {
+  const packNames = () => { try { return fs.readdirSync(paths.prep).filter((f) => f.endsWith('.json')).map((f) => f.replace(/\.json$/, '')); } catch { return []; } };
+  ipcMain.handle('s:state', () => ({ keys: config.has(), packs: packNames() }));
+  ipcMain.handle('s:save', async (_e, k) => {
+    config.saveKeys(k || {});
+    build(); // rebuild answerer with the new keys
+    return { results: await testKeys() };
+  });
+  ipcMain.handle('s:pick', async () => {
+    const r = await dialog.showOpenDialog(settingsWin, { properties: ['openFile'], filters: [{ name: 'Resume', extensions: ['pdf', 'docx', 'txt', 'md'] }] });
+    return r.canceled ? null : r.filePaths[0];
+  });
+  ipcMain.handle('s:prep', async (_e, { resumeFile, jdText, name }) => {
+    try {
+      const safe = String(name || 'my-pack').replace(/[^\w-]+/g, '-').slice(0, 40) || 'my-pack';
+      const r = await generatePack({ resumeFile, jdText, name: safe, outFile: path.join(paths.prep, safe + '.json'), apiKey: process.env.ANTHROPIC_API_KEY, model: process.env.PREP_MODEL });
+      await prep.load();
+      return { ok: true, items: r.items, role: r.role };
+    } catch (e) { return { ok: false, error: e.message }; }
+  });
+  ipcMain.handle('s:open', (_e, which) => shell.openPath(which === 'prep' ? paths.prep : paths.docs));
+  ipcMain.handle('s:session', () => detector.toggleManual());
+}
