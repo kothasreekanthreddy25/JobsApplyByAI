@@ -94,7 +94,8 @@ async function startListening(meeting) {
   stt.on('utterance', (text) => {
     clearTimeout(timer);
     // Re-answer only if the final text added real content beyond what we already answered.
-    const grew = text.length > fired.length + 12 && !fired.startsWith(text);
+    const wc = (s) => s.replace(/[^\w\s]/g, '').split(/\s+/).filter(Boolean).length;
+    const grew = wc(text) > wc(fired); // the early guess was cut off: answer the full question instead
     if (isQuestion(text) && (!fired || grew)) fire(text);
     fired = '';
     answerer.note(text);

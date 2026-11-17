@@ -69,8 +69,17 @@ class Answerer {
     onStart?.(question);
     try {
       if (useOpenAI) {
-        await this.openaiStream(system, user, ctrl.signal, onDelta);
-        return onDone?.();
+        let started = false;
+        try {
+          await this.openaiStream(system, user, ctrl.signal, (d) => { started = true; onDelta?.(d); });
+          if (started || ctrl.signal.aborted) return onDone?.();
+          console.error('OpenAI returned no text, falling back to Claude');
+        } catch (e) {
+          if (ctrl.signal.aborted) return;
+          if (started) return onDone?.(e.message); // already showing a partial answer, don't mix models
+          console.error('OpenAI failed, falling back to Claude:', e.message.split('\n')[0]);
+          // fall through: answer with Claude instead so the user never sees a dead end
+        }
       }
       const stream = this.client.messages.stream(
         { model: this.model, max_tokens: 220, system, messages: [{ role: 'user', content: user }] },
