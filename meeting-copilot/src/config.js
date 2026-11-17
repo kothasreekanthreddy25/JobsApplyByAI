@@ -49,4 +49,28 @@ function paths() {
   return p;
 }
 
-module.exports = { applyKeysToEnv, saveKeys, clearKey, has, paths, userDir };
+// License + trial state: encrypted with DPAPI and written to TWO places (settings.json and a mirror file in
+// %LOCALAPPDATA%). On load the two are merged taking the most-used / earliest values, so deleting just one copy
+// does not reset the trial. (A determined user can still wipe both: see the note in license.js.)
+const mirrorFile = () => path.join(process.env.LOCALAPPDATA || userDir(), 'MeetingCopilot', '.lic');
+const parse = (o) => { try { return JSON.parse(dec(o)); } catch { return null; } };
+const licenseStore = {
+  load() {
+    let b = null;
+    try { b = parse(JSON.parse(fs.readFileSync(mirrorFile(), 'utf8'))); } catch { /* no mirror yet */ }
+    const a = parse(read().license);
+    if (!a && !b) return null;
+    const out = { ...(b || {}), ...(a || {}) };
+    const ta = a?.trial, tb = b?.trial;
+    if (ta || tb) out.trial = { first: Math.min(ta?.first ?? Infinity, tb?.first ?? Infinity), usedSec: Math.max(ta?.usedSec ?? 0, tb?.usedSec ?? 0) };
+    out.licenseKey = a?.licenseKey || b?.licenseKey;
+    return out;
+  },
+  save(obj) {
+    const e = enc(JSON.stringify(obj));
+    const s = read(); s.license = e; write(s);
+    try { fs.mkdirSync(path.dirname(mirrorFile()), { recursive: true }); fs.writeFileSync(mirrorFile(), JSON.stringify(e)); } catch { /* best effort */ }
+  },
+};
+
+module.exports = { applyKeysToEnv, saveKeys, clearKey, has, paths, userDir, licenseStore };

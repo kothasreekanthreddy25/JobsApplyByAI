@@ -7,7 +7,9 @@
     "start": "electron .",
     "prep": "node src/prep.js",
     "pack": "electron-builder --win --dir",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder --win",
+    "test": "node --test tests/license.test.js",
+    "license:make": "node tools/license.js make"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.60.0",
@@ -74,5 +76,6 @@
       "uninstallerIcon": "build/icon.ico"
     },
     "afterPack": "build/afterPack.js"
-  }
+  },
+  "buyUrl": ""
 }

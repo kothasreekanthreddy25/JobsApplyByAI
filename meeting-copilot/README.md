@@ -69,3 +69,21 @@ npm run dist       # produces dist/Meeting Copilot Setup <version>.exe (~150 MB)
 - Users add their own API keys on the first-run Settings screen; keys are stored encrypted (Windows DPAPI) in `%APPDATA%/Meeting Copilot`, never inside the installer.
 - Not code-signed yet: Windows SmartScreen will warn until a signing certificate is configured. Do not commit `dist/` (too large for GitHub); upload the `.exe` to a release or your own download page.
 - `npm run pack` builds only the unpacked app folder (faster, for testing).
+
+## Licensing (selling the app)
+Customers get a free trial (30 minutes of live-session time within 14 days; prep packs and settings always work), then need a license key.
+
+**Your side (seller):**
+```
+node tools/license.js init                                   # once: creates .license/private.pem and src/licensePublic.js
+node tools/license.js make --email buyer@example.com --days 365   # prints a key to send to the buyer (omit --days for lifetime)
+node tools/license.js verify <key>
+```
+- **Back up `.license/private.pem`** (password manager / encrypted drive). It is git-ignored and never shipped. If you lose it you can't issue valid keys; if you re-run `init --force` every key you already sold stops working.
+- Rebuild the installer after `init` (the app embeds only the public key, so it can verify keys but never create them).
+- Set `buyUrl` in `package.json` (an https link to your checkout page) to show a "Buy a license" button in Settings.
+- Change the trial length with `TRIAL_MINUTES` in the environment when testing.
+
+**Limits (no server involved):** keys are checked offline, so a key can be shared and an expired-trial machine can be reset by wiping app data. The trial counter is stored encrypted in two places to stop casual resets. For hard enforcement, add an activation server that binds a key to one machine (and can revoke keys); keys issued today would keep working with it.
+
+Run the tests with `npm test`.

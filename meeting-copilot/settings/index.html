@@ -35,6 +35,15 @@
   <p class="sub">Private overlay that listens to your meeting or mock interview and answers questions. Only you can see it.</p>
 
   <section>
+    <h2>License <span id="licBadge" class="badge">checking…</span></h2>
+    <p id="licText" class="hint"></p>
+    <label for="licKey">License key</label>
+    <input id="licKey" type="text" autocomplete="off" spellcheck="false" placeholder="MC1.…" />
+    <div class="row"><button id="activate" class="primary">Activate</button><button id="buy" style="display:none">Buy a license</button></div>
+    <div id="licMsg" class="msg"></div>
+  </section>
+
+  <section>
     <h2>1. Your API keys <span id="keysBadge" class="badge">checking…</span></h2>
     <p class="hint">Stored encrypted on this computer only. Leave a box empty to keep the saved key.</p>
     <label for="anthropic">Anthropic key (writes the answers)</label>

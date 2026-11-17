@@ -3,8 +3,34 @@ let resumeFile = null;
 
 function say(id, text, ok) { const e = $(id); e.textContent = text; e.className = 'msg ' + (ok === true ? 'ok' : ok === false ? 'err' : ''); }
 
+function showLicense(l, buyUrl) {
+  const b = $('licBadge'), t = $('licText');
+  const mins = (sec) => (sec >= 60 ? Math.floor(sec / 60) + ' min' : sec + ' s');
+  if (l.status === 'licensed') {
+    b.textContent = 'active'; b.className = 'badge ok';
+    t.textContent = `Licensed to ${l.email} (${l.plan}). ${l.exp ? 'Valid until ' + l.exp.slice(0, 10) + '.' : 'Lifetime license.'} Thank you!`;
+  } else if (l.status === 'trial') {
+    b.textContent = 'free trial'; b.className = 'badge';
+    t.textContent = `Free trial: ${mins(l.trialLeftSec)} of live session time and ${l.daysLeft} day${l.daysLeft === 1 ? '' : 's'} left. Prep packs and settings always work.`;
+  } else {
+    b.textContent = 'license needed'; b.className = 'badge bad';
+    t.textContent = `${l.reason} Enter a license key to keep using live sessions.`;
+  }
+  $('buy').style.display = buyUrl && l.status !== 'licensed' ? '' : 'none';
+}
+
+$('activate').onclick = async () => {
+  const key = $('licKey').value.trim();
+  if (!key) return say('licMsg', 'Paste your license key first.', false);
+  const r = await window.app.activate(key);
+  if (r.ok) { $('licKey').value = ''; say('licMsg', 'License activated. Thank you!', true); } else say('licMsg', r.reason, false);
+  refresh();
+};
+$('buy').onclick = () => window.app.buy();
+
 async function refresh() {
   const s = await window.app.state();
+  showLicense(s.license, s.buyUrl);
   const k = $('keysBadge');
   const ready = s.keys.anthropic && s.keys.deepgram;
   k.textContent = ready ? 'ready' : 'keys needed';

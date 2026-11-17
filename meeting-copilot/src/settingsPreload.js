@@ -2,6 +2,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 const call = (ch, ...a) => ipcRenderer.invoke(ch, ...a);
 contextBridge.exposeInMainWorld('app', {
   state: () => call('s:state'),
+  activate: (k) => call('s:activate', k),
+  buy: () => call('s:buy'),
   saveKeys: (k) => call('s:save', k),
   pick: () => call('s:pick'),
   makePrep: (o) => call('s:prep', o),

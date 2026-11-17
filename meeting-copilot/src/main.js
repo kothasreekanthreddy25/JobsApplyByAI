@@ -8,6 +8,8 @@ const { StreamingSTT } = require('./stt');
 const { Answerer, isQuestion } = require('./qa');
 const { PrepBank } = require('./prepBank');
 const config = require('./config');
+const { createLicense, fmt } = require('./license');
+const BUY_URL = process.env.BUY_URL || require('../package.json').buyUrl || '';
 const { generatePack } = require('./prep');
 const Anthropic = require('@anthropic-ai/sdk');
 
@@ -31,7 +33,7 @@ function saveCfg() {
   }, 400);
 }
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-let docs, prep, answerer, paths;
+let docs, prep, answerer, paths, license, meter = null;
 const calendar = new Calendar(process.env.CALENDAR_ICS_URL);
 const detector = new MeetingDetector(calendar);
 
@@ -39,6 +41,8 @@ const detector = new MeetingDetector(calendar);
 function build() {
   config.applyKeysToEnv();
   paths = config.paths();
+  license = createLicense({ storage: config.licenseStore });
+  license.touch(); // records first-use time (starts the 14-day trial clock)
   process.env.MODEL_CACHE = paths.models;
   if (app.isPackaged) process.env.MODEL_OFFLINE = '1'; // installer ships the matching model
   docs = new DocIndex(paths.docs);
@@ -83,14 +87,28 @@ function createOverlay() {
   overlay.once('ready-to-show', () => overlay.showInactive());
 }
 
+// Big, readable message in the overlay itself (the small status line fades out).
+function showLicenseWall(reason) {
+  send('answer-start', 'License needed');
+  send('answer-delta', `${reason}\n- Click the tray icon, open Settings\n- Paste your license key and Activate`);
+  send('answer-done', null);
+  send('status', 'License needed');
+}
+
 async function startListening(meeting) {
+  const lic = license.status();
+  if (lic.status === 'expired') { showLicenseWall(lic.reason); openSettings(); return; }
   send('status', 'Loading documents…');
   const n = await docs.load(meeting.title);
   answerer.setMeeting(meeting);
   send('meeting', { title: meeting.title, app: meeting.app, docChunks: n });
   if (!process.env.DEEPGRAM_API_KEY) return send('status', 'Set DEEPGRAM_API_KEY in .env');
   stt = new StreamingSTT(process.env.DEEPGRAM_API_KEY);
-  stt.on('ready', () => { send('status', 'Listening'); send('capture', 'start'); });
+  stt.on('ready', () => {
+    const l = license.status();
+    send('status', l.status === 'trial' ? `Listening · trial: ${fmt(l.trialLeftSec)} left` : 'Listening');
+    send('capture', 'start');
+  });
   stt.on('error', (e) => send('status', 'STT error: ' + e.message));
   // Speculative answering: fire as soon as the partial transcript looks like a complete
   // question and has been stable for ~200ms, without waiting for the speaker's silence.
@@ -122,9 +140,19 @@ async function startListening(meeting) {
   });
   answerer.warmup(); // open the HTTPS connection now so the first answer skips TLS setup
   stt.open();
+
+  // Trial metering: count live-session time every 5 s; end the session when the trial runs out.
+  clearInterval(meter);
+  let warned = false;
+  meter = setInterval(() => {
+    const s = license.addUsage(5);
+    if (s.status === 'expired') { stopListening(); showLicenseWall(s.reason); openSettings(); }
+    else if (s.status === 'trial' && s.trialLeftSec <= 300 && !warned) { warned = true; send('status', `Trial: ${fmt(s.trialLeftSec)} left`); }
+  }, 5000);
 }
 
 function stopListening() {
+  clearInterval(meter);
   send('capture', 'stop');
   stt?.close();
   stt = null;
@@ -260,7 +288,13 @@ async function testKeys() {
 
 function registerSettingsIpc() {
   const packNames = () => { try { return fs.readdirSync(paths.prep).filter((f) => f.endsWith('.json')).map((f) => f.replace(/\.json$/, '')); } catch { return []; } };
-  ipcMain.handle('s:state', () => ({ keys: config.has(), packs: packNames() }));
+  ipcMain.handle('s:state', () => ({ keys: config.has(), packs: packNames(), license: license.status(), buyUrl: BUY_URL }));
+  ipcMain.handle('s:activate', (_e, key) => {
+    const r = license.activate(key);
+    if (r.ok) { detector.current = null; detector.tick(); } // let a waiting meeting start right away
+    return r;
+  });
+  ipcMain.handle('s:buy', () => { if (/^https:\/\//.test(BUY_URL)) shell.openExternal(BUY_URL); });
   ipcMain.handle('s:save', async (_e, k) => {
     config.saveKeys(k || {});
     build(); // rebuild answerer with the new keys
