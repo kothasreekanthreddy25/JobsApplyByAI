@@ -4,3 +4,4 @@ node_modules
 prep/
 dist
 .license/
+site/release.json

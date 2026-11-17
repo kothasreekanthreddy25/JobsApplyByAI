@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Install guide - Meeting Copilot</title>
+<meta name="description" content="Step-by-step install and setup guide for Meeting Copilot on Windows, including the one-time Windows warning." />
+<link rel="icon" href="icon.png" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="index.html"><img src="icon.png" alt="" />Meeting Copilot</a>
+    <nav><a href="index.html">Home</a><a href="#install">Install</a><a href="#setup">Set up</a><a href="#use">Use</a><a href="#help">Help</a></nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section style="padding-top:36px">
+    <h1 style="font-size:clamp(28px,5vw,38px);margin:0 0 8px;letter-spacing:-0.02em">Install guide</h1>
+    <p class="sub">About five minutes. You need Windows 10 (version 2004 or later) or Windows 11, an internet connection, and accounts with two AI services (set up in Part 2; you pay them directly for what you use).</p>
+  </section>
+
+  <section id="install">
+    <h2>Part 1: Install</h2>
+    <ol class="steps">
+      <li>
+        <strong>Download the installer</strong>
+        Get <code class="fname">Meeting Copilot Setup.exe</code> from the <a href="index.html#download">download page</a>. It is about 150 MB because it includes the small on-device model that matches your questions to your prep pack.
+        <h3>Optional: check the file is genuine</h3>
+        Open PowerShell (Start menu, type <code>powershell</code>) and run:
+        <pre><code>Get-FileHash "$env:USERPROFILE\Downloads\<span class="fname">Meeting Copilot Setup.exe</span>" -Algorithm SHA256</code></pre>
+        The long code it prints must match the SHA-256 on the <a href="index.html#download">download page</a>. If it doesn't, don't run the file and tell us.
+      </li>
+      <li>
+        <strong>Run it. Windows may show a warning once.</strong>
+        Double-click the installer. Because the app is new and isn't code-signed yet, Windows SmartScreen will probably show a blue "Windows protected your PC" screen. This is normal for any new unsigned program and is not a sign of a problem with the file (see the checksum above if you want to be sure).
+        <div class="mock" aria-label="Simplified illustration of the Windows warning screen">
+          <div class="bar">Windows protected your PC</div>
+          <div class="body"><h4>Windows protected your PC</h4><p>Microsoft Defender SmartScreen prevented an unrecognized app from starting. Running this app might put your PC at risk.</p><span class="more">More info</span></div>
+          <div class="row"><span class="b">Don't run</span></div>
+        </div>
+        <div class="mock-cap">Illustration (simplified): 1. Click <b>More info</b>.</div>
+        <div class="mock" aria-label="Simplified illustration of the Run anyway button">
+          <div class="bar">Windows protected your PC</div>
+          <div class="body"><h4>Windows protected your PC</h4><p>App: Meeting Copilot Setup<br />Publisher: Unknown publisher</p></div>
+          <div class="row"><span class="b hl">Run anyway</span><span class="b">Don't run</span></div>
+        </div>
+        <div class="mock-cap">2. Click <b>Run anyway</b>. The installer then runs in a few seconds and creates a Desktop and Start Menu shortcut. It installs only for you, so no administrator password is needed.</div>
+        <div class="note"><strong>If there is no "Run anyway" button.</strong> Some Windows 11 PCs have <em>Smart App Control</em> turned on, which blocks unsigned apps with no override. Your options: turn Smart App Control off in <em>Windows Security &gt; App &amp; browser control &gt; Smart App Control settings</em> (note that Windows doesn't let you turn it back on without resetting the PC), or wait for the signed version. Only change this if you are comfortable with that trade-off.</div>
+        <div class="note info"><strong>Antivirus alert?</strong> Unsigned new programs sometimes trigger false alarms. Check the SHA-256 above. If it matches, you can allow the file in your antivirus, or report the false positive to its vendor.</div>
+      </li>
+    </ol>
+  </section>
+
+  <section id="setup">
+    <h2>Part 2: Set up (first launch)</h2>
+    <p class="sub">The Settings window opens by itself the first time. You can reopen it any time from the tray icon (bottom-right of the taskbar; click the arrow if it is hidden).</p>
+    <ol class="steps">
+      <li>
+        <strong>Create your two AI accounts and keys</strong>
+        The app uses two services that bill you directly for what you use, usually a few cents for an hour of audio and answers. Nothing is billed through us.
+        <table style="margin-top:10px">
+          <tr><th>Service</th><th>What it does</th><th>How to get the key</th></tr>
+          <tr><td>Anthropic</td><td>Writes the answers</td><td>Sign up at <code>console.anthropic.com</code>. Add a small amount of credit under <em>Billing</em>, then <em>API keys &gt; Create key</em>.</td></tr>
+          <tr><td>Deepgram</td><td>Turns speech into text</td><td>Sign up at <code>console.deepgram.com</code> (new accounts often include starter credit), then <em>API Keys &gt; Create a New API Key</em>.</td></tr>
+          <tr><td>OpenAI <span class="badge">optional</span></td><td>Backup only</td><td>Not needed. Skip it.</td></tr>
+        </table>
+        <div class="note">Treat keys like passwords. Never post them in chat, email or screenshots. If one leaks, delete it in that service's console and create a new one.</div>
+      </li>
+      <li>
+        <strong>Paste the keys into Settings</strong>
+        Paste them into the boxes and click <b>Save and test keys</b>. You should see a green tick for each service. Typical messages: <code>key rejected</code> (a typo or a deleted key), <code>no credit on the account</code> (add credit in the Anthropic console).
+        The keys are stored encrypted on your computer and never sent to us.
+      </li>
+      <li>
+        <strong>Create your prep pack <span class="badge">recommended for interview practice</span></strong>
+        In <em>Interview prep pack</em>, click <b>Choose resume</b> (PDF, Word or text; a scanned image won't work), paste the job description, give the pack a name and click <b>Create prep pack</b>. After about a minute you'll see how many questions were made. A readable study sheet (<code>.md</code>) is saved next to it; open it with <b>Open prep folder</b> and read it before you rely on it, because the answers are drafted from your resume and you should check them.
+        During practice, close matches to a prepared question appear instantly (the overlay says "prepared"); other questions are answered by the AI in about a second, using your resume as background.
+      </li>
+      <li>
+        <strong>Add your own study material <span class="badge">optional</span></strong>
+        Click <b>Open documents folder</b> and drop in PDF, Word, text or Markdown files (notes, product docs, textbooks). A file inside a sub-folder is used only when the meeting title contains the folder name, for example <code>acme</code> for a call titled "Acme renewal".
+      </li>
+    </ol>
+  </section>
+
+  <section id="use">
+    <h2>Part 3: Use it</h2>
+    <ol class="steps">
+      <li>
+        <strong>Start a session</strong>
+        Press <kbd>Ctrl+Shift+S</kbd> (or use the tray menu) to start, and again to stop. It also starts by itself when it detects a Zoom, Teams, Google Meet or Webex meeting window. The overlay appears at the top-centre of your screen, just under your webcam.
+        <div class="note info"><strong>Test it first.</strong> Start a session and play a video where someone asks a question, or ask one out loud near your speakers. The app listens to what your <em>computer plays</em>, not your microphone, so it hears the other people on a call but not you. Do a test before any real call.</div>
+      </li>
+      <li>
+        <strong>Move and resize the overlay</strong>
+        Press <kbd>Ctrl+Shift+M</kbd> to unlock it. A dashed frame appears: drag the top bar to move it, drag the bottom-right corner to resize, and press <kbd>Ctrl+Shift+M</kbd> again to lock it so clicks pass through. Position, size, transparency and text size are remembered.
+      </li>
+      <li>
+        <strong>Handy keys</strong>
+        <table style="margin-top:8px">
+          <tr><td><kbd>Ctrl+Shift+S</kbd></td><td>Start / stop a session</td></tr>
+          <tr><td><kbd>Ctrl+Shift+H</kbd></td><td>Show / hide the overlay</td></tr>
+          <tr><td><kbd>Ctrl+Shift+M</kbd></td><td>Unlock to drag / resize, press again to lock</td></tr>
+          <tr><td><kbd>Ctrl+Alt</kbd> + arrow keys</td><td>Move the overlay (add <kbd>Shift</kbd> to resize), works while locked</td></tr>
+          <tr><td><kbd>Ctrl+Alt+[</kbd> / <kbd>]</kbd></td><td>Background more / less transparent</td></tr>
+          <tr><td><kbd>Ctrl+Alt+-</kbd> / <kbd>=</kbd></td><td>Smaller / larger text</td></tr>
+          <tr><td><kbd>Ctrl+Alt+0</kbd></td><td>Reset position, transparency and text size</td></tr>
+          <tr><td><kbd>Ctrl+Shift+V</kbd></td><td>Read answers aloud on / off (uses your default audio output)</td></tr>
+          <tr><td><kbd>Ctrl+Shift+Q</kbd></td><td>Quit the app</td></tr>
+        </table>
+      </li>
+      <li>
+        <strong>Free trial and your license key</strong>
+        You get 30 minutes of live-session time within 14 days. When it ends, the overlay tells you. Open Settings from the tray icon, paste your license key (it starts with <code>MC1.</code>) into the <em>License</em> box and click <b>Activate</b>. Keys work offline, with no account or sign-in.
+      </li>
+    </ol>
+  </section>
+
+  <section id="help">
+    <h2>Troubleshooting</h2>
+    <table>
+      <tr><th>Problem</th><th>Try this</th></tr>
+      <tr><td>I can't see the overlay</td><td>Press <kbd>Ctrl+Shift+H</kbd> (it may be hidden) or <kbd>Ctrl+Alt+0</kbd> (reset position). It starts at the top-centre of your main screen.</td></tr>
+      <tr><td>I can't drag it</td><td>It is locked. Press <kbd>Ctrl+Shift+M</kbd> first, then drag the blue bar.</td></tr>
+      <tr><td>Nothing happens when people ask questions</td><td>Check the Settings keys show green ticks, start a session (<kbd>Ctrl+Shift+S</kbd>), and make sure the sound is playing through your computer's output (headphones count). The tray icon shows the app is running.</td></tr>
+      <tr><td>It answers my own voice, or answers twice</td><td>It only listens to your computer's sound output. If your speakers feed back into a microphone, use headphones.</td></tr>
+      <tr><td>Hotkeys don't work</td><td>Another program may use the same keys. Make sure only one copy of the app is running (check the tray), and quit with <kbd>Ctrl+Shift+Q</kbd> before starting again.</td></tr>
+      <tr><td>"No credit" / "key rejected"</td><td>Open the service's console (Anthropic or Deepgram), check the key exists and the account has credit, create a new key if needed, and paste it in Settings.</td></tr>
+      <tr><td>The Windows warning has no "Run anyway"</td><td>See the Smart App Control note in Part 1.</td></tr>
+      <tr><td>Prep pack says the resume has no readable text</td><td>It is probably a scanned image. Export your resume as a text-based PDF or a Word file and try again.</td></tr>
+    </table>
+
+    <h3>Uninstall</h3>
+    <p>Open <em>Settings &gt; Apps &gt; Installed apps</em>, find <b>Meeting Copilot</b> and uninstall it. Your settings, prep packs and documents are kept so a reinstall picks up where you left off. To remove them too, delete the folder <code>%APPDATA%\meeting-copilot</code> (paste that into File Explorer's address bar).</p>
+
+    <h3>Privacy at a glance</h3>
+    <p>Audio from your call goes to Deepgram for transcription; question text and the few matching notes from your resume or documents go to Anthropic to write the answer. Your keys, resume, documents and prep packs stay on your computer. Get consent before recording or transcribing other people where the law requires it, and follow the rules of any interview or exam.</p>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div><a href="index.html">Back to the download page</a></div>
+    <div id="support" style="display:none;margin-top:6px">Still stuck? <a id="supportLink" href="#"></a></div>
+  </div>
+</footer>
+
+<script>
+(async () => {
+  let r = null;
+  try { r = await (await fetch('release.json', { cache: 'no-store' })).json(); } catch { /* optional */ }
+  if (!r) return;
+  if (r.file) document.querySelectorAll('.fname').forEach((e) => (e.textContent = r.file));
+  if (r.support) { document.getElementById('supportLink').href = 'mailto:' + r.support; document.getElementById('supportLink').textContent = r.support; document.getElementById('support').style.display = ''; }
+})();
+</script>
+</body>
+</html>

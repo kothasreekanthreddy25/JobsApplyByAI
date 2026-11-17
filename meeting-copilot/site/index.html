@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Meeting Copilot - private answer overlay for meetings and mock interviews</title>
+<meta name="description" content="Meeting Copilot listens to your call or practice interview and shows suggested answers in a private overlay that screen sharing cannot capture. Windows 10/11." />
+<link rel="icon" href="icon.png" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#"><img src="icon.png" alt="" />Meeting Copilot</a>
+    <nav><a href="#features">Features</a><a href="#how">How it works</a><a href="install.html">Install guide</a><a href="#faq">FAQ</a></nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <h1>Answers when you need them, visible only to you</h1>
+    <p class="lead">Meeting Copilot listens to your call or practice interview and shows a short, glanceable answer in a private overlay. Built for mock interviews, sales calls, support calls and learning.</p>
+    <a id="dl" class="btn disabled" href="#">Download for Windows</a>
+    <div class="meta"><span id="metaLine">Windows 10 (2004+) and 11, 64-bit</span></div>
+    <div class="meta"><a href="install.html">Read the install guide first</a> (Windows may show a one-time warning, explained there)</div>
+  </div>
+
+  <div class="wrap" id="features">
+    <h2>What you get</h2>
+    <p class="sub">Everything runs on your computer; you bring your own AI keys.</p>
+    <div class="grid">
+      <div class="card"><h3>Private overlay</h3><p>A transparent window that Windows excludes from screen sharing and recordings. Move it, resize it, and change its opacity and text size to suit your eyes.</p></div>
+      <div class="card"><h3>Fast answers</h3><p>The first words usually appear in under a second. It starts answering before the speaker finishes the question.</p></div>
+      <div class="card"><h3>Prep pack from your resume</h3><p>Give it your resume and a job description. It writes about 35 likely questions with answers based on your real experience, and shows them instantly during practice.</p></div>
+      <div class="card"><h3>Your own documents</h3><p>Drop in PDF, Word or text files. Answers cite your material instead of guessing.</p></div>
+      <div class="card"><h3>Easy to read</h3><p>A one-line headline plus up to three short bullets, so your eyes barely move. Optional spoken answers through your headphones.</p></div>
+      <div class="card"><h3>Starts by itself</h3><p>Detects Zoom, Teams, Meet and Webex meetings, or start it yourself with a hotkey.</p></div>
+    </div>
+  </div>
+
+  <div class="wrap" id="how">
+    <section>
+      <h2>How it works</h2>
+      <ol class="steps">
+        <li><strong>Install and add your keys</strong>One-click installer. Paste your Anthropic and Deepgram keys on the first-run screen; they are stored encrypted on your computer.</li>
+        <li><strong>Create your prep pack (optional)</strong>Choose your resume, paste the job description, and click Create. It takes about a minute.</li>
+        <li><strong>Start a call or practice session</strong>Press <kbd>Ctrl+Shift+S</kbd> or just join a meeting. Questions you hear appear with an answer in the overlay.</li>
+      </ol>
+    </section>
+
+    <section id="pricing">
+      <h2>Free trial, then one license</h2>
+      <p class="sub" id="priceLine">Try it free: 30 minutes of live-session time within 14 days. Setup, prep packs and settings are always free to use.</p>
+      <div class="card">
+        <p style="margin:0;color:var(--text)">After the trial, enter a license key in Settings to continue. Keys work offline, so there is no account to create and no sign-in.</p>
+        <p id="buyRow" style="display:none;margin-top:12px"><a id="buy" class="btn ghost" href="#">Buy a license</a></p>
+      </div>
+    </section>
+
+    <section id="download">
+      <h2>Download</h2>
+      <div class="card">
+        <table>
+          <tr><th>Version</th><td id="ver">-</td></tr>
+          <tr><th>Size</th><td id="size">-</td></tr>
+          <tr><th>Requires</th><td>Windows 10 (version 2004 or later) or Windows 11, 64-bit, internet connection</td></tr>
+          <tr><th>SHA-256</th><td class="hash"><code id="sha">published with each release</code></td></tr>
+        </table>
+        <p style="margin:14px 0 0"><a id="dl2" class="btn disabled" href="#">Download for Windows</a></p>
+        <p class="meta">New to this? Follow the <a href="install.html">install guide</a>. It takes about five minutes.</p>
+      </div>
+    </section>
+
+    <section id="faq">
+      <h2>Questions</h2>
+      <details><summary>Can other people on the call see the overlay?</summary><p>The overlay is excluded from screen sharing and recording by Windows, so people viewing your shared screen won't see it. That cannot protect against someone physically looking at your screen, a camera pointed at it, or software that captures at driver level.</p></details>
+      <details><summary>Is it okay to use in a real interview?</summary><p>That depends on the interviewer's rules. Many employers and exams prohibit outside help, and using it against the rules can cost you the offer. It is designed for practice and mock interviews, and for meetings and calls where assistance is allowed. Always get consent before transcribing other people's voices where the law requires it.</p></details>
+      <details><summary>What do I need besides the app?</summary><p>Two accounts that bill you directly for what you use: an Anthropic account (writes the answers) and a Deepgram account (turns speech into text). The install guide shows where to get each key. An OpenAI key is optional.</p></details>
+      <details><summary>Where does my data go?</summary><p>Audio of the meeting goes to Deepgram for transcription, and the question text goes to Anthropic to write the answer. Your resume and documents stay on your computer except for the text of a question and the few matching notes sent with it. Keys are stored encrypted on your computer. We don't receive your audio, transcripts or keys.</p></details>
+      <details><summary>Windows warned me when I ran the installer. Is it safe?</summary><p>The app is new and not yet code-signed, so Windows shows a one-time "protected your PC" screen for any unsigned installer. The install guide walks through it and shows how to verify the file's checksum against the one on this page.</p></details>
+      <details><summary>Does it work on Mac or Linux?</summary><p>Not yet. Windows 10 and 11 only.</p></details>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>Meeting Copilot <span id="footVer"></span></div>
+    <div id="support" style="display:none">Questions or problems? <a id="supportLink" href="#"></a></div>
+    <div style="margin-top:6px">Use responsibly: follow the rules of your interview, exam or workplace, and get consent before recording or transcribing others.</div>
+  </div>
+</footer>
+
+<script>
+// release.json is produced by `node tools/release-info.js` after each build. The page still works without it.
+(async () => {
+  const $ = (id) => document.getElementById(id);
+  let r = null;
+  try { r = await (await fetch('release.json', { cache: 'no-store' })).json(); } catch { /* not published yet */ }
+  if (!r) return;
+  $('ver').textContent = r.version + (r.date ? ' (' + r.date + ')' : '');
+  $('footVer').textContent = 'v' + r.version;
+  $('size').textContent = r.sizeMB + ' MB';
+  if (r.sha256) $('sha').textContent = r.sha256;
+  $('metaLine').textContent = `Version ${r.version} · ${r.sizeMB} MB · Windows 10 (2004+) and 11, 64-bit`;
+  if (r.downloadUrl) for (const id of ['dl', 'dl2']) { const a = $(id); a.href = r.downloadUrl; a.classList.remove('disabled'); }
+  if (r.price) $('priceLine').textContent = `Try it free: 30 minutes of live-session time within 14 days. License: ${r.price}.`;
+  if (r.buyUrl) { $('buy').href = r.buyUrl; $('buyRow').style.display = ''; }
+  if (r.support) { $('supportLink').href = 'mailto:' + r.support; $('supportLink').textContent = r.support; $('support').style.display = ''; }
+})();
+</script>
+</body>
+</html>
