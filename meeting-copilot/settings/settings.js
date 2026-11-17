@@ -5,7 +5,11 @@ function say(id, text, ok) { const e = $(id); e.textContent = text; e.className 
 
 function showLicense(l, buyUrl) {
   const b = $('licBadge'), t = $('licText');
-  const mins = (sec) => (sec >= 60 ? Math.floor(sec / 60) + ' min' : sec + ' s');
+  const mins = (sec) => {
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+    if (h >= 1) return m ? `${h} h ${m} min` : `${h} h`;
+    return m >= 1 ? `${m} min` : `${sec} s`;
+  };
   if (l.status === 'licensed') {
     b.textContent = 'active'; b.className = 'badge ok';
     t.textContent = `Licensed to ${l.email} (${l.plan}). ${l.exp ? 'Valid until ' + l.exp.slice(0, 10) + '.' : 'Lifetime license.'} Thank you!`;

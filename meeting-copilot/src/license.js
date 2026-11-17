@@ -9,7 +9,8 @@
 const crypto = require('crypto');
 const { PUBLIC_KEY_PEM } = require('./licensePublic');
 
-const TRIAL_SECONDS = Math.round((process.env.TRIAL_MINUTES !== undefined ? +process.env.TRIAL_MINUTES : 30) * 60);
+const DEFAULT_TRIAL_MINUTES = 24 * 60; // 24 hours of live-session time
+const TRIAL_SECONDS = Math.round((process.env.TRIAL_MINUTES !== undefined ? +process.env.TRIAL_MINUTES : DEFAULT_TRIAL_MINUTES) * 60);
 const TRIAL_DAYS = 14;
 
 function verifyKey(key, publicPem = PUBLIC_KEY_PEM, now = Date.now()) {
@@ -68,6 +69,10 @@ function createLicense({ storage, publicPem = PUBLIC_KEY_PEM, now = () => Date.n
   return { status, activate, addUsage, touch };
 }
 
-const fmt = (sec) => { const m = Math.floor(sec / 60); return m >= 1 ? `${m} min` : `${sec}s`; };
+const fmt = (sec) => {
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+  if (h >= 1) return m ? `${h} h ${m} min` : `${h} h`;
+  return m >= 1 ? `${m} min` : `${sec}s`;
+};
 
 module.exports = { verifyKey, createLicense, fmt, TRIAL_SECONDS, TRIAL_DAYS };

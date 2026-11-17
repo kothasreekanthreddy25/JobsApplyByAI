@@ -71,7 +71,7 @@ npm run dist       # produces dist/Meeting Copilot Setup <version>.exe (~150 MB)
 - `npm run pack` builds only the unpacked app folder (faster, for testing).
 
 ## Licensing (selling the app)
-Customers get a free trial (30 minutes of live-session time within 14 days; prep packs and settings always work), then need a license key.
+Customers get a free trial (24 hours of live-session time within 14 days; prep packs and settings always work), then need a license key.
 
 **Your side (seller):**
 ```

@@ -51,6 +51,20 @@ test('whitespace / line breaks pasted into the key are tolerated', () => {
   assert.equal(verifyKey(key.replace(/(.{40})/g, '$1\n  '), pubPem(k)).ok, true);
 });
 
+test('default free trial is 24 hours of live-session time, and time is shown in hours', () => {
+  delete process.env.TRIAL_MINUTES;
+  delete require.cache[require.resolve('../src/license')];
+  const { TRIAL_SECONDS, fmt, createLicense: mk } = require('../src/license');
+  assert.equal(TRIAL_SECONDS, 24 * 3600);
+  assert.equal(fmt(24 * 3600), '24 h'); assert.equal(fmt(23 * 3600 + 59 * 60), '23 h 59 min');
+  assert.equal(fmt(90 * 60), '1 h 30 min'); assert.equal(fmt(5 * 60), '5 min'); assert.equal(fmt(42), '42s');
+  const lic = mk({ storage: mem() });
+  assert.equal(lic.status().trialLeftSec, 24 * 3600);
+  assert.equal(lic.addUsage(23 * 3600).status, 'trial');      // 23 h used: still has 1 h
+  assert.equal(lic.addUsage(3600).status, 'expired');          // 24 h used: trial over
+  delete require.cache[require.resolve('../src/license')];
+});
+
 test('trial: counts down, then expires when minutes are used up', () => {
   process.env.TRIAL_MINUTES = '1'; // fresh module copy with a 60 s trial
   delete require.cache[require.resolve('../src/license')];
@@ -74,7 +88,7 @@ test('trial: also expires after 14 days even with minutes left', () => {
 test('activating a valid key ends the trial limits and stops metering', () => {
   const k = pair(), storage = mem();
   const lic = createLicense({ storage, publicPem: pubPem(k) });
-  lic.touch(); lic.addUsage(10 * 60 * 60); // way over any trial
+  lic.touch(); lic.addUsage(30 * 60 * 60); // 30 h: well over the 24 h trial
   assert.equal(lic.status().status, 'expired');
   const r = lic.activate(issue(k.privateKey, { v: 1, email: 'a@b.com', plan: 'pro' }));
   assert.equal(r.ok, true); assert.equal(r.status, 'licensed');
