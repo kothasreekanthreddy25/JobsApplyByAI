@@ -1,0 +1,5 @@
+Senior Backend Engineer - Orbit Logistics
+We are looking for a backend engineer to build and scale the APIs that power our delivery tracking platform.
+Responsibilities: design and build REST and event-driven services in Node.js/TypeScript; own performance and reliability of high-volume systems; work with PostgreSQL, Redis and AWS; mentor engineers; collaborate with product and operations.
+Requirements: 3+ years backend experience; strong Node.js or Python; experience with relational databases and caching; experience with microservices and message queues; comfortable on AWS; clear communication.
+Nice to have: Kubernetes, observability tooling, experience migrating monoliths.

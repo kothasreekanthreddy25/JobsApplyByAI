@@ -82,4 +82,4 @@ class DocIndex {
   }
 }
 
-module.exports = { DocIndex };
+module.exports = { DocIndex, extractText };

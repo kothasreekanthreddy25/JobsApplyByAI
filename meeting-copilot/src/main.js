@@ -6,6 +6,7 @@ const { Calendar } = require('./calendar');
 const { DocIndex } = require('./docs');
 const { StreamingSTT } = require('./stt');
 const { Answerer, isQuestion } = require('./qa');
+const { PrepBank } = require('./prepBank');
 
 let overlay;
 let stt = null;
@@ -26,10 +27,12 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const docs = new DocIndex(path.resolve(__dirname, '..', process.env.DOCS_DIR || './docs'));
 const calendar = new Calendar(process.env.CALENDAR_ICS_URL);
 const detector = new MeetingDetector(calendar);
+const prep = new PrepBank(path.resolve(__dirname, '..', process.env.PREP_DIR || './prep'));
 const answerer = new Answerer({
   apiKey: process.env.ANTHROPIC_API_KEY,
   model: process.env.ANSWER_MODEL || 'claude-haiku-5-5',
   docs,
+  prep,
   openaiKey: process.env.OPENAI_API_KEY,
   openaiModel: process.env.OPENAI_MODEL,
 });
@@ -80,6 +83,7 @@ async function startListening(meeting) {
     fired = text;
     answerer.answer(text, {
       onStart: (q) => send('answer-start', q),
+      onMeta: (m) => send('answer-meta', m),
       onDelta: (d) => send('answer-delta', d),
       onDone: (err) => send('answer-done', err || null),
     });
@@ -120,6 +124,8 @@ app.whenReady().then(async () => {
   });
 
   createOverlay();
+  // Load the prepared-answer bank in the background (first run downloads a ~25 MB local model).
+  prep.load().then((n) => { if (n) send('status', `Prep pack ready: ${n} question phrasings`); }).catch((e) => send('status', 'Prep pack unavailable: ' + e.message));
   await calendar.start();
   detector.on('start', startListening);
   detector.on('end', stopListening);

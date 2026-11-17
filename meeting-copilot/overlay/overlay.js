@@ -27,7 +27,7 @@ window.copilot.on('heard', (t) => { $('heard').textContent = '… ' + t.slice(-1
 
 // ---- Answer rendering: headline (1st line, big) + short bullets (rest) ----
 function render() {
-  const lines = raw.split('\n').map((l) => l.replace(/^\s*[-•*]\s*/, '').replace(/\[\d+\]/g, '').trim()).filter(Boolean);
+  const lines = raw.split('\n').map((l) => l.replace(/^\s*[-•*]\s*/, '').replace(/\[P?\d+\]/g, '').trim()).filter(Boolean);
   $('hint').style.display = lines.length ? 'none' : '';
   $('head').textContent = lines[0] || '';
   const ul = $('pts');
@@ -49,7 +49,7 @@ window.addEventListener('resize', fit);
 let voiceOn = false, pending = '', speakingCount = 0;
 const synth = window.speechSynthesis;
 function speak(sentence) {
-  const u = new SpeechSynthesisUtterance(sentence.replace(/\[\d+\]/g, '').replace(/^\s*[-•*#]\s*/gm, ''));
+  const u = new SpeechSynthesisUtterance(sentence.replace(/\[P?\d+\]/g, '').replace(/^\s*[-•*#]\s*/gm, ''));
   u.rate = 1.1;
   speakingCount++; window.copilot.speaking(true);
   const done = () => { if (--speakingCount <= 0) { speakingCount = 0; window.copilot.speaking(false); } };
@@ -71,13 +71,15 @@ window.copilot.on('voice-toggle', () => {
 
 window.copilot.on('answer-start', (q) => {
   synth.cancel(); pending = ''; speakingCount = 0; // newest question wins
-  t0 = performance.now(); first = false; raw = '';
+  t0 = performance.now(); first = false; raw = ''; src = '';
   $('q').textContent = q;
   $('lat').textContent = '';
   render();
 });
+let src = '';
+window.copilot.on('answer-meta', (m) => { src = m; $('lat').textContent = m; flash(m, true); });
 window.copilot.on('answer-delta', (d) => {
-  if (!first) { first = true; $('lat').textContent = `${Math.round(performance.now() - t0)}ms`; }
+  if (!first) { first = true; if (!src) $('lat').textContent = `${Math.round(performance.now() - t0)}ms`; }
   raw += d;
   render();
   feedSpeech(d, false);
