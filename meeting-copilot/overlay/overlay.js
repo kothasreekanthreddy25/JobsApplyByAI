@@ -71,6 +71,7 @@ window.copilot.on('voice-toggle', () => {
 });
 
 window.copilot.on('answer-start', (q) => {
+  if (document.body.classList.contains('mini')) document.body.classList.add('ping'); // new answer while minimised: pill pulses
   synth.cancel(); pending = ''; speakingCount = 0; // newest question wins
   t0 = performance.now(); first = false; raw = ''; src = '';
   $('q').textContent = q;
@@ -98,6 +99,16 @@ function dragger(el, kind) {
   el.addEventListener('pointerup', () => { s = null; window.copilot.win('end'); });
 }
 dragger($('bar'), 'move');
+
+// ---- Minimise / restore / close buttons ----
+// While locked the window is click-through; pointing at the buttons makes just that moment clickable.
+const btns = $('btns');
+btns.addEventListener('mouseenter', () => window.copilot.win('hover', true));
+btns.addEventListener('mouseleave', () => window.copilot.win('hover', false));
+$('bMin').onclick = () => window.copilot.win('minimize');
+$('bRestore').onclick = () => { document.body.classList.remove('ping'); window.copilot.win('restore'); };
+$('bClose').onclick = () => window.copilot.win('close');
+window.copilot.on('mini', (on) => { document.body.classList.toggle('mini', on); document.body.classList.remove('ping'); fit(); });
 dragger($('grip'), 'resize');
 
 // ---- Audio capture: system loopback = the other participants' voices ----

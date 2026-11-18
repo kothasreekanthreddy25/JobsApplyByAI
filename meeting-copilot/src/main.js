@@ -31,7 +31,7 @@ let saveTimer;
 function saveCfg() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    try { cfg.bounds = overlay.getBounds(); fs.writeFileSync(cfgPath(), JSON.stringify(cfg)); } catch {}
+    try { cfg.bounds = fullBounds || overlay.getBounds(); fs.writeFileSync(cfgPath(), JSON.stringify(cfg)); } catch {}
   }, 400);
 }
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -69,6 +69,21 @@ function defaultBounds() {
 }
 const pushCfg = () => { send('cfg', { opacity: cfg.opacity, font: cfg.font, interactive: cfg.interactive }); saveCfg(); };
 
+// Minimise = shrink to a small pill (top-right corner of the overlay) that still has Restore + Close.
+let fullBounds = null;
+function minimizeOverlay(on) {
+  if (!overlay || overlay.isDestroyed()) return;
+  if (on && !fullBounds) {
+    fullBounds = overlay.getBounds();
+    overlay.setBounds({ x: fullBounds.x + fullBounds.width - 110, y: fullBounds.y, width: 110, height: 30 });
+    send('mini', true);
+  } else if (!on && fullBounds) {
+    overlay.setBounds(fullBounds); fullBounds = null;
+    send('mini', false);
+  }
+  if (!fullBounds) saveCfg();
+}
+
 function createOverlay() {
   const b = cfg.bounds || defaultBounds();
   overlay = new BrowserWindow({
@@ -101,6 +116,7 @@ function showLicenseWall(reason, realtime = false) {
 
 let listenReady = Promise.resolve(false), firedCount = 0;
 async function startListening(meeting) {
+  if (overlay && !overlay.isDestroyed() && !overlay.isVisible()) overlay.showInactive(); // closed earlier: show it again for the new session
   // Free allowances (counted separately): DEMO 24 h, REALTIME 1 h of meeting-call time. A license key removes both.
   const isDemo = meeting.app === 'Demo';
   const lmode = isDemo ? 'demo' : 'realtime';
@@ -340,6 +356,10 @@ app.whenReady().then(async () => {
     else if (kind === 'move' && start) overlay.setBounds({ ...start, x: start.x + p.dx, y: start.y + p.dy });
     else if (kind === 'resize' && start) overlay.setBounds({ ...start, width: Math.max(260, start.width + p.dx), height: Math.max(120, start.height + p.dy) });
     else if (kind === 'end') { start = null; saveCfg(); }
+    else if (kind === 'hover') overlay.setIgnoreMouseEvents(!(p || cfg.interactive), { forward: true }); // buttons are clickable while locked
+    else if (kind === 'minimize') minimizeOverlay(true);
+    else if (kind === 'restore') minimizeOverlay(false);
+    else if (kind === 'close') { minimizeOverlay(false); overlay.hide(); } // Ctrl+Shift+H or the tray brings it back
   });
 
   const reg = (k, fn) => globalShortcut.register(k, fn);

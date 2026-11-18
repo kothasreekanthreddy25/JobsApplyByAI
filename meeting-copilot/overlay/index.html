@@ -36,10 +36,29 @@
   .edit #heard { display: block; font-size: 11px; color: #9ab; margin-top: 8px; max-height: 30px; overflow: hidden; }
   .edit #content { margin-top: 18px; }
   .edit #foot { opacity: 1; }
+
+  /* Minimise / close buttons: always reachable (even while the overlay is click-through), faint until you point at them. */
+  #btns { position: absolute; top: 3px; right: 6px; display: flex; gap: 4px; z-index: 5; opacity: .3; transition: opacity .15s; -webkit-text-stroke: 0; text-shadow: none; }
+  #btns:hover, .edit #btns { opacity: 1; }
+  #btns button { all: unset; box-sizing: border-box; width: 22px; height: 20px; border-radius: 6px; text-align: center; line-height: 19px; font-size: 14px; color: #fff; background: rgba(20,24,32,.75); cursor: pointer; }
+  #btns button:hover { background: rgba(90,150,255,.9); }
+  #btns #bClose:hover { background: #e5484d; }
+  #btns #bRestore { display: none; }
+  /* Minimised: just a small pill with Restore + Close. */
+  .mini #content, .mini #foot, .mini #grip, .mini #bar, .mini #btns #bMin { display: none !important; }
+  .mini #btns #bRestore { display: block; }
+  .mini #root { padding: 0; outline: none; background: rgba(8,10,14,.55); }
+  .mini #btns { opacity: 1; top: 4px; right: 5px; }
+  #pill { display: none; }
+  .mini #pill { display: block; position: absolute; left: 10px; top: 5px; font-size: 11px; color: #cfd6e4; -webkit-text-stroke: 0; }
+  .mini.ping #pill { color: #5ee3a1; animation: ping 1s ease-in-out infinite; }
+  @keyframes ping { 50% { opacity: .35; } }
 </style>
 </head>
 <body>
   <div id="root">
+    <div id="btns"><button id="bMin" title="Minimise">&#8211;</button><button id="bRestore" title="Restore">&#9633;</button><button id="bClose" title="Hide overlay (Ctrl+Shift+H shows it again)">&#215;</button></div>
+    <div id="pill">Copilot</div>
     <div id="bar">⠿ drag to move · drag corner to resize · Ctrl+Shift+M to lock</div>
     <div id="content">
       <div id="q"></div>
