@@ -3,22 +3,24 @@ let resumeFile = null;
 
 function say(id, text, ok) { const e = $(id); e.textContent = text; e.className = 'msg ' + (ok === true ? 'ok' : ok === false ? 'err' : ''); }
 
+const mins = (sec) => {
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+  if (h >= 1) return m ? `${h} h ${m} min` : `${h} h`;
+  return m >= 1 ? `${m} min` : `${sec} s`;
+};
+
 function showLicense(l, buyUrl) {
   const b = $('licBadge'), t = $('licText');
-  const mins = (sec) => {
-    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
-    if (h >= 1) return m ? `${h} h ${m} min` : `${h} h`;
-    return m >= 1 ? `${m} min` : `${sec} s`;
-  };
   if (l.status === 'licensed') {
     b.textContent = 'active'; b.className = 'badge ok';
-    t.textContent = `Licensed to ${l.email} (${l.plan}). ${l.exp ? 'Valid until ' + l.exp.slice(0, 10) + '.' : 'Lifetime license.'} Thank you!`;
+    t.textContent = `Licensed to ${l.email} (${l.plan}). ${l.exp ? 'Valid until ' + l.exp.slice(0, 10) + '.' : 'Lifetime license.'} Demo and Realtime are both unlocked. Thank you!`;
   } else if (l.status === 'trial') {
-    b.textContent = 'free trial'; b.className = 'badge';
-    t.textContent = `Free trial: ${mins(l.trialLeftSec)} of live session time and ${l.daysLeft} day${l.daysLeft === 1 ? '' : 's'} left. Prep packs and settings always work.`;
+    b.textContent = 'free time'; b.className = 'badge';
+    t.textContent = `Free meeting-call time left: Demo ${mins(l.demoLeftSec)}, Realtime ${mins(l.realtimeLeftSec)}` +
+      (l.daysLeft != null ? ` (and ${l.daysLeft} day${l.daysLeft === 1 ? '' : 's'})` : '') + '. A license key removes the limits. Prep packs and settings are always free.';
   } else {
     b.textContent = 'license needed'; b.className = 'badge bad';
-    t.textContent = `${l.reason} Enter a license key to keep using live sessions.`;
+    t.textContent = `${l.reason} Enter a license key to keep using the app.`;
   }
   $('buy').style.display = buyUrl && l.status !== 'licensed' ? '' : 'none';
 }
@@ -45,6 +47,12 @@ function showMode(m) {
   $('modeReal').classList.toggle('on', m === 'realtime');
   $('modeDemo').classList.toggle('on', m === 'demo');
   $('modeText').textContent = MODE_TEXT[m].replace('<Ctrl+Shift+S>', 'Ctrl+Shift+S');
+  if (m === 'realtime' && lastState && lastState.license.status !== 'licensed') {
+    const l = lastState.license;
+    $('modeText').textContent += l.status === 'expired'
+      ? ' Your free Realtime time is used up: a license key is needed to continue.'
+      : ` Free for ${mins(l.realtimeLeftSec)} of meeting-call time, then a license key is needed.`;
+  }
   $('demoPanel').style.display = m === 'demo' ? '' : 'none';
   applyView();
   if (m === 'demo') pollDemo();
@@ -62,7 +70,8 @@ function applyView() {
   for (const id of ['secPrep', 'secDocs', 'secUse']) show(id, !demo);
   const note = $('dNote');
   if (demo && keysMissing) { note.style.display = ''; note.textContent = 'The demo needs your API keys once. Save them below, then you can schedule the interview.'; }
-  else if (demo && licenseNeeded) { note.style.display = ''; note.textContent = 'Your trial has ended. Enter a license key below to continue.'; }
+  else if (demo && licenseNeeded) { note.style.display = ''; note.textContent = 'Your free demo time is used up. Enter a license key below to continue.'; }
+  else if (demo && s?.license.status === 'trial') { note.style.display = ''; note.textContent = `Demo is free: ${mins(s.license.trialLeftSec)} of meeting-call time left. API keys are set, so they are hidden. Switch to Realtime to change them or to enter a license key.`; }
   else if (demo) { note.style.display = ''; note.textContent = 'API keys and license are already set, so they are hidden. Switch to Realtime to change them.'; }
   else note.style.display = 'none';
   $('dSchedule').disabled = demo && (keysMissing || licenseNeeded);

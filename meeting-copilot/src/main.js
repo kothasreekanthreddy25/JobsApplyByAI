@@ -44,7 +44,7 @@ function build() {
   config.applyKeysToEnv();
   paths = config.paths();
   license = createLicense({ storage: config.licenseStore });
-  license.touch(); // records first-use time (starts the 14-day trial clock)
+  license.touch(); // records first-use time
   process.env.MODEL_CACHE = paths.models;
   if (app.isPackaged) process.env.MODEL_OFFLINE = '1'; // installer ships the matching model
   docs = new DocIndex(paths.docs);
@@ -90,17 +90,22 @@ function createOverlay() {
 }
 
 // Big, readable message in the overlay itself (the small status line fades out).
-function showLicenseWall(reason) {
+function showLicenseWall(reason, realtime = false) {
   send('answer-start', 'License needed');
-  send('answer-delta', `${reason}\n- Click the tray icon, open Settings\n- Paste your license key and Activate`);
+  send('answer-delta', realtime
+    ? `${reason}\n- Open Settings from the tray icon and paste your license key\n- Or try Demo mode (free)`
+    : `${reason}\n- Click the tray icon, open Settings\n- Paste your license key and Activate`);
   send('answer-done', null);
   send('status', 'License needed');
 }
 
 let listenReady = Promise.resolve(false), firedCount = 0;
 async function startListening(meeting) {
-  const lic = license.status();
-  if (lic.status === 'expired') { showLicenseWall(lic.reason); openSettings(); return false; }
+  // Free allowances (counted separately): DEMO 24 h, REALTIME 1 h of meeting-call time. A license key removes both.
+  const isDemo = meeting.app === 'Demo';
+  const lmode = isDemo ? 'demo' : 'realtime';
+  const lic = license.status(lmode);
+  if (lic.status === 'expired') { showLicenseWall(lic.reason, !isDemo); openSettings(); return false; }
   send('status', 'Loading documents…');
   const n = await docs.load(meeting.title);
   answerer.setMeeting(meeting);
@@ -108,8 +113,8 @@ async function startListening(meeting) {
   if (!process.env.DEEPGRAM_API_KEY) { send('status', 'Add your Deepgram key in Settings'); return false; }
   stt = new StreamingSTT(process.env.DEEPGRAM_API_KEY);
   stt.on('ready', () => {
-    const l = license.status();
-    send('status', l.status === 'trial' ? `Listening · trial: ${fmt(l.trialLeftSec)} left` : 'Listening');
+    const l = license.status(lmode);
+    send('status', l.status === 'trial' ? `Listening · free ${isDemo ? 'demo' : 'Realtime'} time: ${fmt(l.trialLeftSec)} left` : 'Listening');
     send('capture', 'start');
   });
   stt.on('error', (e) => send('status', 'STT error: ' + e.message));
@@ -149,8 +154,8 @@ async function startListening(meeting) {
   clearInterval(meter);
   let warned = false;
   meter = setInterval(() => {
-    const s = license.addUsage(5);
-    if (s.status === 'expired') { stopListening(); showLicenseWall(s.reason); openSettings(); }
+    const s = license.addUsage(5, lmode);
+    if (s.status === 'expired') { stopListening(); showLicenseWall(s.reason, !isDemo); openSettings(); }
     else if (s.status === 'trial' && s.trialLeftSec <= 300 && !warned) { warned = true; send('status', `Trial: ${fmt(s.trialLeftSec)} left`); }
   }, 5000);
   return true;
@@ -438,7 +443,7 @@ async function testKeys() {
 
 function registerSettingsIpc() {
   const packNames = () => { try { return fs.readdirSync(paths.prep).filter((f) => f.endsWith('.json')).map((f) => f.replace(/\.json$/, '')); } catch { return []; } };
-  ipcMain.handle('s:state', () => ({ keys: config.has(), packs: packNames(), license: license.status(), buyUrl: BUY_URL, mode }));
+  ipcMain.handle('s:state', () => ({ keys: config.has(), packs: packNames(), license: license.status(mode === 'demo' ? 'demo' : 'realtime'), buyUrl: BUY_URL, mode }));
   ipcMain.handle('s:activate', (_e, key) => {
     const r = license.activate(key);
     if (r.ok) { detector.current = null; detector.tick(); } // let a waiting meeting start right away

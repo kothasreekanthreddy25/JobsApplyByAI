@@ -62,7 +62,7 @@ const licenseStore = {
     if (!a && !b) return null;
     const out = { ...(b || {}), ...(a || {}) };
     const ta = a?.trial, tb = b?.trial;
-    if (ta || tb) out.trial = { first: Math.min(ta?.first ?? Infinity, tb?.first ?? Infinity), usedSec: Math.max(ta?.usedSec ?? 0, tb?.usedSec ?? 0) };
+    if (ta || tb) out.trial = { first: Math.min(ta?.first ?? Infinity, tb?.first ?? Infinity), usedSec: Math.max(ta?.usedSec ?? 0, tb?.usedSec ?? 0), usedRealSec: Math.max(ta?.usedRealSec ?? 0, tb?.usedRealSec ?? 0) };
     out.licenseKey = a?.licenseKey || b?.licenseKey;
     return out;
   },

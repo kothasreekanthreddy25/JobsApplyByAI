@@ -65,6 +65,48 @@ test('default free trial is 24 hours of live-session time, and time is shown in 
   delete require.cache[require.resolve('../src/license')];
 });
 
+test('Realtime gets 1 free hour and Demo gets 24 free hours, counted separately', () => {
+  delete process.env.TRIAL_MINUTES; delete process.env.TRIAL_REALTIME_MINUTES;
+  delete require.cache[require.resolve('../src/license')];
+  const { REALTIME_SECONDS, TRIAL_SECONDS, createLicense: mk } = require('../src/license');
+  assert.equal(REALTIME_SECONDS, 3600); assert.equal(TRIAL_SECONDS, 24 * 3600);
+  const lic = mk({ storage: mem() });
+  const s0 = lic.status('realtime');
+  assert.equal(s0.status, 'trial'); assert.equal(s0.trialLeftSec, 3600);
+  assert.equal(s0.demoLeftSec, 24 * 3600); assert.equal(s0.realtimeLeftSec, 3600);
+
+  assert.equal(lic.addUsage(40 * 60, 'realtime').trialLeftSec, 20 * 60);   // 40 min of real meetings used
+  assert.equal(lic.status('demo').trialLeftSec, 24 * 3600, 'demo time is untouched by realtime use');
+  const done = lic.addUsage(20 * 60, 'realtime');                            // the last 20 minutes
+  assert.equal(done.status, 'expired'); assert.match(done.reason, /Realtime/);
+  assert.equal(lic.status('demo').status, 'trial', 'Demo still works after Realtime is used up');
+
+  lic.addUsage(24 * 3600, 'demo');
+  const d = lic.status('demo');
+  assert.equal(d.status, 'expired'); assert.match(d.reason, /demo/);
+  assert.equal(lic.status('realtime').status, 'expired');
+  delete require.cache[require.resolve('../src/license')];
+});
+
+test('a license key lifts BOTH limits and stops metering for either mode', () => {
+  const k = pair(), storage = mem();
+  const lic = createLicense({ storage, publicPem: pubPem(k) });
+  lic.touch(); lic.addUsage(100 * 3600, 'realtime'); lic.addUsage(100 * 3600, 'demo');
+  assert.equal(lic.status('realtime').status, 'expired'); assert.equal(lic.status('demo').status, 'expired');
+  assert.equal(lic.activate(issue(k.privateKey, { v: 1, email: 'a@b.com', plan: 'pro' })).ok, true);
+  assert.equal(lic.status('realtime').status, 'licensed'); assert.equal(lic.status('demo').status, 'licensed');
+  const before = JSON.stringify(storage.load().trial);
+  lic.addUsage(500, 'realtime'); lic.addUsage(500, 'demo');
+  assert.equal(JSON.stringify(storage.load().trial), before);
+});
+
+test('older saved data without a Realtime counter still loads (treated as 0 used)', () => {
+  const storage = mem(); storage.save({ trial: { first: Date.now(), usedSec: 600 } }); // saved by an earlier version
+  const lic = createLicense({ storage });
+  assert.equal(lic.status('realtime').realtimeLeftSec, 3600);
+  assert.equal(lic.status('demo').demoLeftSec, 24 * 3600 - 600);
+});
+
 test('trial: counts down, then expires when minutes are used up', () => {
   process.env.TRIAL_MINUTES = '1'; // fresh module copy with a 60 s trial
   delete require.cache[require.resolve('../src/license')];
@@ -76,11 +118,21 @@ test('trial: counts down, then expires when minutes are used up', () => {
   delete process.env.TRIAL_MINUTES; delete require.cache[require.resolve('../src/license')];
 });
 
-test('trial: also expires after 14 days even with minutes left', () => {
+test('by default only meeting-call time counts: no calendar expiry, even after a year', () => {
   let t = Date.parse('2026-01-01T00:00:00Z');
   const lic = createLicense({ storage: mem(), now: () => t });
+  lic.touch(); lic.addUsage(2 * 3600); // 2 hours of calls used
+  t += 400 * 86400000;                  // 400 days later
+  const s = lic.status();
+  assert.equal(s.status, 'trial'); assert.equal(s.daysLeft, null);
+  assert.equal(s.trialLeftSec, 22 * 3600, 'idle days cost nothing');
+});
+
+test('optional calendar limit still works when configured (trialDays)', () => {
+  let t = Date.parse('2026-01-01T00:00:00Z');
+  const lic = createLicense({ storage: mem(), now: () => t, trialDays: 14 });
   lic.touch();
-  assert.equal(lic.status().status, 'trial');
+  assert.equal(lic.status().status, 'trial'); assert.equal(lic.status().daysLeft, 14);
   t += 15 * 86400000;
   assert.equal(lic.status().status, 'expired');
 });

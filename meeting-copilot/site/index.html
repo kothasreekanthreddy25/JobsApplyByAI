@@ -49,10 +49,10 @@
     </section>
 
     <section id="pricing">
-      <h2>Free trial, then one license</h2>
-      <p class="sub" id="priceLine">Try it free: 24 hours of live-session time within 14 days. Setup, prep packs and settings are always free to use.</p>
+      <h2>Try it free, then one license</h2>
+      <p class="sub" id="priceLine">Try it free: 24 hours of Demo mode (the AI mock interview) and 1 hour of Realtime mode (real meetings). Only time spent in a live session counts, with no expiry date. Setup, prep packs and settings are always free.</p>
       <div class="card">
-        <p style="margin:0;color:var(--text)">After the trial, enter a license key in Settings to continue. Keys work offline, so there is no account to create and no sign-in.</p>
+        <p style="margin:0;color:var(--text)">When a free allowance runs out, enter a license key in Settings to keep going. One key unlocks both Demo and Realtime. Keys work offline, so there is no account to create and no sign-in.</p>
         <p id="buyRow" style="display:none;margin-top:12px"><a id="buy" class="btn ghost" href="#">Buy a license</a></p>
       </div>
     </section>
@@ -104,7 +104,7 @@
   if (r.sha256) $('sha').textContent = r.sha256;
   $('metaLine').textContent = `Version ${r.version} · ${r.sizeMB} MB · Windows 10 (2004+) and 11, 64-bit`;
   if (r.downloadUrl) for (const id of ['dl', 'dl2']) { const a = $(id); a.href = r.downloadUrl; a.classList.remove('disabled'); }
-  if (r.price) $('priceLine').textContent = `Try it free: 24 hours of live-session time within 14 days. License: ${r.price}.`;
+  if (r.price) $('priceLine').textContent = `Free: 24 hours of Demo and 1 hour of Realtime, with no expiry date. License: ${r.price}.`;
   if (r.buyUrl) { $('buy').href = r.buyUrl; $('buyRow').style.display = ''; }
   if (r.support) { $('supportLink').href = 'mailto:' + r.support; $('supportLink').textContent = r.support; $('support').style.display = ''; }
 })();
