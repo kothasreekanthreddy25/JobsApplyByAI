@@ -100,7 +100,7 @@ function createOverlay() {
   overlay.setAlwaysOnTop(true, 'screen-saver');
   overlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   overlay.setIgnoreMouseEvents(true, { forward: true });
-  overlay.webContents.on('did-finish-load', pushCfg);
+  overlay.webContents.on('did-finish-load', () => { pushCfg(); send('mode', mode); });
   overlay.loadFile(path.join(__dirname, '..', 'overlay', 'index.html'));
   overlay.once('ready-to-show', () => overlay.showInactive());
 }
@@ -336,6 +336,7 @@ function setupDemo() {
 function setMode(m) {
   mode = m === 'demo' ? 'demo' : 'realtime';
   config.setMode(mode);
+  send('mode', mode); send('status', mode === 'demo' ? 'Demo mode: schedule a mock interview' : 'Realtime mode: waiting for a real meeting');
   if (mode === 'demo') { detector.stop(); if (stt && !demoSession) stopListening(); }
   else { demo?.cancel(); if (demoSession) { demoSession = false; stopListening(); } detector.start(); }
   global.__tray && createTrayMenu();
@@ -420,6 +421,11 @@ app.whenReady().then(async () => {
     else if (kind === 'end') { start = null; saveCfg(); }
     else if (kind === 'hover') overlay.setIgnoreMouseEvents(!(p || cfg.interactive), { forward: true }); // buttons are clickable while locked
     else if (kind === 'minimize') minimizeOverlay(true);
+    else if (kind === 'mode') { // quick switch from the overlay: Realtime <-> Demo
+      setMode(mode === 'demo' ? 'realtime' : 'demo');
+      if (mode === 'demo') openSettings(); // Demo: schedule or start the mock interview right away
+    }
+    else if (kind === 'settings') openSettings();
     else if (kind === 'restore') minimizeOverlay(false);
     else if (kind === 'close') { minimizeOverlay(false); overlay.hide(); } // Ctrl+Shift+H or the tray brings it back
   });

@@ -9,7 +9,7 @@
     font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: #fff; user-select: none; }
 
   /* Legibility on ANY background (even fully transparent): glow + thin dark outline around every glyph. */
-  #root { position: relative; box-sizing: border-box; height: 100%; padding: 10px 16px 18px; border-radius: 14px;
+  #root { position: relative; box-sizing: border-box; height: 100%; padding: 26px 16px 18px; border-radius: 14px;
     background: rgba(8, 10, 14, var(--alpha));
     text-shadow: 0 0 2px #000, 0 0 5px rgba(0,0,0,.95), 0 1px 2px #000;
     -webkit-text-stroke: .45px rgba(0,0,0,.55); paint-order: stroke fill; }
@@ -43,9 +43,12 @@
   #btns button { all: unset; box-sizing: border-box; width: 22px; height: 20px; border-radius: 6px; text-align: center; line-height: 19px; font-size: 14px; color: #fff; background: rgba(20,24,32,.75); cursor: pointer; }
   #btns button:hover { background: rgba(90,150,255,.9); }
   #btns #bClose:hover { background: #e5484d; }
+  #btns #bMode { width: auto; padding: 0 9px; font-size: 11px; font-weight: 650; letter-spacing: .2px; }
+  #btns #bMode.demo { background: rgba(255,170,60,.9); color: #1b1200; }
+  #btns #bMode.real { background: rgba(61,220,132,.85); color: #04210f; }
   #btns #bRestore { display: none; }
   /* Minimised: just a small pill with Restore + Close. */
-  .mini #content, .mini #foot, .mini #grip, .mini #bar, .mini #btns #bMin { display: none !important; }
+  .mini #content, .mini #foot, .mini #grip, .mini #bar, .mini #btns #bMin, .mini #btns #bMode, .mini #btns #bSet { display: none !important; }
   .mini #btns #bRestore { display: block; }
   .mini #root { padding: 0; outline: none; background: rgba(8,10,14,.55); }
   .mini #btns { opacity: 1; top: 4px; right: 5px; }
@@ -57,7 +60,7 @@
 </head>
 <body>
   <div id="root">
-    <div id="btns"><button id="bMin" title="Minimise">&#8211;</button><button id="bRestore" title="Restore">&#9633;</button><button id="bClose" title="Hide overlay (Ctrl+Shift+H shows it again)">&#215;</button></div>
+    <div id="btns"><button id="bMode" title="Switch between Realtime and Demo">Realtime</button><button id="bSet" title="Open Settings">&#9881;</button><button id="bMin" title="Minimise">&#8211;</button><button id="bRestore" title="Restore">&#9633;</button><button id="bClose" title="Hide overlay (Ctrl+Shift+H shows it again)">&#215;</button></div>
     <div id="pill">Copilot</div>
     <div id="bar">⠿ drag to move · drag corner to resize · Ctrl+Shift+M to lock</div>
     <div id="content">
