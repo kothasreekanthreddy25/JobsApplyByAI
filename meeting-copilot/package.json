@@ -8,7 +8,7 @@
     "prep": "node src/prep.js",
     "pack": "electron-builder --win --dir",
     "dist": "electron-builder --win",
-    "test": "node --test tests/license.test.js tests/questions.test.js tests/demo.test.js",
+    "test": "node --test tests/license.test.js tests/questions.test.js tests/demo.test.js tests/docqa.test.js",
     "license:make": "node tools/license.js make"
   },
   "dependencies": {

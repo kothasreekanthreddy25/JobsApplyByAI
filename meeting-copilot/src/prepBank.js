@@ -2,6 +2,8 @@
 const fs = require('fs');
 const path = require('path');
 const { embed, dot } = require('./embed');
+const { loadDocPairs } = require('./docQA');
+const SUPPORTED = /\.(txt|md|pdf|docx)$/i;
 
 // score >= HIGH  -> show the prepared answer instantly, no AI call
 // score >= MID   -> still ask the AI, but hand it the closest prepared answer as notes
@@ -9,7 +11,27 @@ const HIGH = +(process.env.PREP_HIGH || 0.85);
 const MID = +(process.env.PREP_MID || 0.5);
 
 class PrepBank {
-  constructor(dir) { this.dir = path.resolve(dir); this.entries = []; this.ready = false; }
+  constructor(dir, docsDir) { this.dir = path.resolve(dir); this.docsDir = docsDir && path.resolve(docsDir); this.entries = []; this.ready = false; this.sig = ''; }
+
+  // Cheap change check so a new or edited document is picked up the next time a session starts.
+  signature() {
+    const parts = [];
+    for (const d of [this.dir, this.docsDir]) {
+      try { for (const f of fs.readdirSync(d)) { const st = fs.statSync(path.join(d, f)); if (st.isFile()) parts.push(f + st.size + st.mtimeMs); } } catch { /* folder missing */ }
+    }
+    return parts.sort().join('|');
+  }
+
+  async refresh() { return this.signature() !== this.sig ? this.load() : this.entries.length; }
+
+  // Q&A documents in the docs folder (a question followed by its answer) count as prepared answers too.
+  async loadDocs() {
+    if (!this.docsDir || !fs.existsSync(this.docsDir)) return;
+    const files = fs.readdirSync(this.docsDir).filter((n) => SUPPORTED.test(n) && !n.startsWith('~$')).map((n) => path.join(this.docsDir, n));
+    for (const item of await loadDocPairs(files)) {
+      for (const q of item.questions) this.entries.push({ q, item, pack: item.source, vec: await embed(q) });
+    }
+  }
 
   async load() {
     this.entries = [];
@@ -24,6 +46,8 @@ class PrepBank {
         }
       }
     }
+    await this.loadDocs();
+    this.sig = this.signature();
     this.ready = true;
     return this.entries.length;
   }

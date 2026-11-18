@@ -48,7 +48,7 @@ function build() {
   process.env.MODEL_CACHE = paths.models;
   if (app.isPackaged) process.env.MODEL_OFFLINE = '1'; // installer ships the matching model
   docs = new DocIndex(paths.docs);
-  prep = new PrepBank(paths.prep);
+  prep = new PrepBank(paths.prep, paths.docs);
   answerer = new Answerer({
     apiKey: process.env.ANTHROPIC_API_KEY || 'missing',
     model: process.env.ANSWER_MODEL || 'claude-haiku-5-5',
@@ -107,6 +107,7 @@ async function startListening(meeting) {
   const lic = license.status(lmode);
   if (lic.status === 'expired') { showLicenseWall(lic.reason, !isDemo); openSettings(); return false; }
   send('status', 'Loading documents…');
+  prep.refresh().catch((e) => console.error('prep refresh failed:', e.message));
   const n = await docs.load(meeting.title);
   answerer.setMeeting(meeting);
   send('meeting', { title: meeting.title, app: meeting.app, docChunks: n });
