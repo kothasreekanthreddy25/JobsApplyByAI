@@ -71,7 +71,7 @@ function applyView() {
   const note = $('dNote');
   if (demo && keysMissing) { note.style.display = ''; note.textContent = 'The demo needs your API keys once. Save them below, then you can schedule the interview.'; }
   else if (demo && licenseNeeded) { note.style.display = ''; note.textContent = 'Your free demo time is used up. Enter a license key below to continue.'; }
-  else if (demo && s?.license.status === 'trial') { note.style.display = ''; note.textContent = `Demo is free: ${mins(s.license.trialLeftSec)} of meeting-call time left. API keys are set, so they are hidden. Switch to Realtime to change them or to enter a license key.`; }
+  else if (demo && s?.license.status === 'trial') { note.style.display = ''; note.textContent = `Demo is free: ${mins(s.license.demoLeftSec)} of meeting-call time left. API keys are set, so they are hidden. Switch to Realtime to change them or to enter a license key.`; }
   else if (demo) { note.style.display = ''; note.textContent = 'API keys and license are already set, so they are hidden. Switch to Realtime to change them.'; }
   else note.style.display = 'none';
   $('dSchedule').disabled = demo && (keysMissing || licenseNeeded);
