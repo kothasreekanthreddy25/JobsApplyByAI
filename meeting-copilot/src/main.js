@@ -327,6 +327,7 @@ function setupDemo() {
   demo.on('done', () => { finish(); finishReview(); });
   demo.on('error', (e) => { send('status', 'Demo: ' + e.message); finish(); });
   demo.on('update', (st) => {
+    if (st.state === 'idle' && micStt) stopMicRecording(); // cancelled or switched to Realtime mid-interview: mic off, no review
     if (st.state === 'scheduled' && [60, 30, 10].includes(st.secsLeft)) send('status', 'Mock interview starts in ' + (st.secsLeft >= 60 ? '1 minute' : st.secsLeft + ' s'));
     global.__tray?.setToolTip(st.state === 'scheduled' ? `Meeting Copilot - mock interview in ${Math.floor(st.secsLeft / 60)}:${String(st.secsLeft % 60).padStart(2, '0')}` : 'Meeting Copilot');
   });
