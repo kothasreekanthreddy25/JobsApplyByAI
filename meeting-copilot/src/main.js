@@ -7,6 +7,7 @@ const { DocIndex } = require('./docs');
 const { StreamingSTT } = require('./stt');
 const { Answerer, isQuestion } = require('./qa');
 const { PrepBank } = require('./prepBank');
+const { buildReview, toMarkdown } = require('./review');
 const config = require('./config');
 const { createLicense, fmt } = require('./license');
 const BUY_URL = process.env.BUY_URL || require('../package.json').buyUrl || '';
@@ -235,6 +236,56 @@ function openRoom() {
   roomWin.loadFile(path.join(__dirname, '..', 'room', 'index.html'));
 }
 
+// ---- Mock interview review: record the student's spoken answers (mic) per question, then mark them ----
+let micStt = null, micT0 = 0, turns = [], micGood = false;
+const toRoom = (ch, p) => roomWin && !roomWin.isDestroyed() && roomWin.webContents.send(ch, p);
+
+function startMicRecording() {
+  turns = []; micGood = false; lastReview = null;
+  try { micStt?.close(); } catch { /* none */ }
+  micStt = new StreamingSTT(process.env.DEEPGRAM_API_KEY, { fillerWords: true });
+  micT0 = Date.now();
+  micStt.on('final', ({ words }) => {
+    const t = turns[turns.length - 1];
+    if (!t || !t.listening) return; // not an answer window (interviewer talking, or between questions)
+    for (const w of words) t.words.push({ ...w, abs: micT0 + w.start * 1000 });
+  });
+  micStt.on('error', (e) => send('status', 'Microphone recording: ' + e.message));
+  micStt.open();
+  toRoom('r:mic', { on: true });
+}
+function stopMicRecording() { try { micStt?.close(); } catch { /* none */ } micStt = null; toRoom('r:mic', { on: false }); }
+
+async function finishReview() {
+  await sleep(1500); // the last words of the final answer are still being recognised
+  stopMicRecording();
+  const used = turns.filter((t) => t.q);
+  if (!used.length) return;
+  toRoom('r:review', { working: true });
+  const done = [];
+  for (const t of used) {
+    t.listening = false;
+    const words = t.words.sort((a, b) => a.start - b.start);
+    // the interviewer's voice can leak into the mic: drop words before the question finished
+    const clean = words.filter((w) => w.abs >= t.from - 200);
+    let reference = '';
+    try { const m = await answerer.prep?.match(t.q); if (m && m.score >= 0.5) reference = [m.item.headline, ...(m.item.points || []), m.item.detail || ''].filter(Boolean).join(' ').slice(0, 900); } catch { /* optional */ }
+    done.push({ q: t.q, source: t.source, reference, words: clean, transcript: clean.map((w) => w.punctuated_word || w.word).join(' ') });
+  }
+  try {
+    const rv = await buildReview({ turns: done, apiKey: process.env.ANTHROPIC_API_KEY, model: process.env.ANSWER_MODEL || 'claude-haiku-5-5' });
+    try {
+      fs.mkdirSync(paths.reviews, { recursive: true });
+      const file = path.join(paths.reviews, 'mock-interview-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.md');
+      fs.writeFileSync(file, toMarkdown(rv)); rv.file = file;
+    } catch { /* saving is a bonus */ }
+    lastReview = rv;
+    toRoom('r:review', rv);
+    send('status', `Review ready: ${rv.total}/${rv.max}`);
+  } catch (e) { toRoom('r:review', { error: e.message }); }
+}
+let lastReview = null;
+
 function setupDemo() {
   demo = new Demo({
     loadQuestions: () => loadQuestions(paths.docs, paths.prep),
@@ -246,6 +297,7 @@ function setupDemo() {
       if (!ok) { demoSession = false; return false; }
       await listenReady;
       await sleep(1500); // let audio capture start before the first words
+      startMicRecording();
       return true;
     },
   });
@@ -254,10 +306,15 @@ function setupDemo() {
     send('status', 'Your mock interview is ready: admit the AI interviewer');
     try { new Notification({ title: 'Mock interview is ready', body: 'Open the room and admit the AI interviewer.' }).show(); } catch { /* notifications are optional */ }
   });
-  demo.on('asking', () => { askedAtCount = firedCount; clearTimeout(injectTimer); });
+  demo.on('asking', ({ q, source }) => {
+    askedAtCount = firedCount; clearTimeout(injectTimer);
+    const prev = turns[turns.length - 1]; if (prev) prev.listening = false;
+    turns.push({ q, source, words: [], from: Date.now(), listening: false });
+  });
   // Safety net: if the speech-to-text never picked the question up from the audio (muted speakers, no audio device,
   // audio capture problem), answer from the known question text so the demo still shows an answer.
   demo.on('spoken', ({ q }) => {
+    const t = turns[turns.length - 1]; if (t) { t.from = Date.now(); t.listening = true; } // the answer window opens when the question ends
     clearTimeout(injectTimer);
     injectTimer = setTimeout(() => {
       if (demo.state === 'live' && firedCount === askedAtCount) {
@@ -267,7 +324,7 @@ function setupDemo() {
     }, 9000);
   });
   const finish = () => { clearTimeout(injectTimer); if (demoSession) { demoSession = false; stopListening(); } };
-  demo.on('done', finish);
+  demo.on('done', () => { finish(); finishReview(); });
   demo.on('error', (e) => { send('status', 'Demo: ' + e.message); finish(); });
   demo.on('update', (st) => {
     if (st.state === 'scheduled' && [60, 30, 10].includes(st.secsLeft)) send('status', 'Mock interview starts in ' + (st.secsLeft >= 60 ? '1 minute' : st.secsLeft + ' s'));
@@ -291,6 +348,10 @@ async function questionCount() {
 
 function registerDemoIpc() {
   ipcMain.on('r:spoken', (_e, id) => speakWaiters.get(id)?.());
+  ipcMain.on('r:micpcm', (_e, buf) => { if (micStt) micStt.send(Buffer.from(buf)); });
+  ipcMain.on('r:micstate', (_e, ok) => { micGood = !!ok; if (!ok) send('status', 'Microphone not available: your answers cannot be marked'); });
+  ipcMain.handle('r:lastReview', () => lastReview);
+  ipcMain.handle('r:openReviews', () => shell.openPath(paths.reviews));
   ipcMain.handle('r:state', () => demo.snapshot());
   ipcMain.handle('r:startNow', () => { demo.startNow(); return true; });
   ipcMain.handle('r:admit', () => { demo.admit(); return true; }); // runs the whole interview; don't block the call

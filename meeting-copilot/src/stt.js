@@ -4,13 +4,14 @@ const WebSocket = require('ws');
 const EventEmitter = require('events');
 
 class StreamingSTT extends EventEmitter {
-  constructor(apiKey) { super(); this.key = apiKey; this.ws = null; this.buf = ''; }
+  constructor(apiKey, opts = {}) { super(); this.key = apiKey; this.opts = opts; this.ws = null; this.buf = ''; }
 
   open() {
     const url = 'wss://api.deepgram.com/v1/listen?' + new URLSearchParams({
       model: 'nova-3', encoding: 'linear16', sample_rate: '16000', channels: '1',
       interim_results: 'true', endpointing: '350', utterance_end_ms: '1000',
       smart_format: 'true', punctuate: 'true',
+      ...(this.opts.fillerWords ? { filler_words: 'true' } : {}), // keep um / uh so the review can count them
     });
     this.ws = new WebSocket(url, { headers: { Authorization: `Token ${this.key}` } });
     this.ws.on('open', () => {
@@ -22,7 +23,7 @@ class StreamingSTT extends EventEmitter {
       if (m.type === 'Results') {
         const t = m.channel?.alternatives?.[0]?.transcript || '';
         if (!t) return;
-        if (m.is_final) this.buf += (this.buf ? ' ' : '') + t;
+        if (m.is_final) { this.buf += (this.buf ? ' ' : '') + t; this.emit('final', { text: t, words: m.channel.alternatives[0].words || [] }); }
         this.emit('interim', (this.buf + ' ' + (m.is_final ? '' : t)).trim());
         if (m.speech_final) this.flush();
       } else if (m.type === 'UtteranceEnd') this.flush();

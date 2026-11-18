@@ -42,10 +42,11 @@ function paths() {
       docs: path.resolve(root, process.env.DOCS_DIR || './docs'),
       prep: path.resolve(root, process.env.PREP_DIR || './prep'),
       models: process.env.MODEL_CACHE || path.join(root, '.models'),
+      reviews: path.join(root, 'reviews'),
     };
   }
-  const p = { docs: path.join(userDir(), 'docs'), prep: path.join(userDir(), 'prep'), models: path.join(process.resourcesPath, 'models') };
-  fs.mkdirSync(p.docs, { recursive: true }); fs.mkdirSync(p.prep, { recursive: true });
+  const p = { docs: path.join(userDir(), 'docs'), prep: path.join(userDir(), 'prep'), reviews: path.join(userDir(), 'reviews'), models: path.join(process.resourcesPath, 'models') };
+  fs.mkdirSync(p.docs, { recursive: true }); fs.mkdirSync(p.prep, { recursive: true }); fs.mkdirSync(p.reviews, { recursive: true });
   return p;
 }
 
