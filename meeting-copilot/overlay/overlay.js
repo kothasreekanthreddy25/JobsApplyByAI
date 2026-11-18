@@ -36,15 +36,23 @@ function render() {
   for (const l of lines.slice(1)) { const li = document.createElement('li'); li.textContent = l; ul.appendChild(li); }
   fit();
 }
-// Auto-shrink if the answer would overflow the box, so nothing is ever cut off.
+// Nothing is ever cut off: the window grows (or shrinks) to fit the answer at your chosen font size.
+// Only when the answer is taller than the space left on the screen does the font shrink as a last resort.
+let lastAuto = 0;
 function fit() {
-  const root = $('root');
+  const root = $('root'), body = document.body;
   document.documentElement.style.setProperty('--fs', fs + 'px');
+  const auto = !editMode && !body.classList.contains('mini'); // never fight you while you drag/resize or when minimised
+  if (auto) {
+    const room = Math.max(130, (screen.availTop || 0) + screen.availHeight - window.screenY - 8); // space left below the overlay's top edge
+    const needed = Math.min(room, Math.ceil($('content').offsetHeight + 26 + 24)); // top padding + room for the status line
+    if (Math.abs(needed - window.innerHeight) > 3 && needed !== lastAuto) { lastAuto = needed; window.copilot.win('autosize', needed); return; } // main resizes us, then 'resize' calls fit() again
+  }
   for (let f = fs; f > 12 && root.scrollHeight > root.clientHeight + 1; f -= 1) {
     document.documentElement.style.setProperty('--fs', f + 'px');
   }
 }
-window.addEventListener('resize', fit);
+window.addEventListener('resize', () => { lastAuto = 0; fit(); });
 
 // ---- Spoken answers (Windows built-in voices, plays on the default output device) ----
 let voiceOn = false, pending = '', speakingCount = 0;

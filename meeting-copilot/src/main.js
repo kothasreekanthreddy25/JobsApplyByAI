@@ -420,6 +420,13 @@ app.whenReady().then(async () => {
     else if (kind === 'resize' && start) overlay.setBounds({ ...start, width: Math.max(260, start.width + p.dx), height: Math.max(120, start.height + p.dy) });
     else if (kind === 'end') { start = null; saveCfg(); }
     else if (kind === 'hover') overlay.setIgnoreMouseEvents(!(p || cfg.interactive), { forward: true }); // buttons are clickable while locked
+    else if (kind === 'autosize') { // grow/shrink the overlay height to fit the answer (top-left stays put)
+      if (fullBounds || cfg.interactive) return;
+      const b = overlay.getBounds(), wa = screen.getDisplayMatching(b).workArea;
+      const maxH = Math.max(130, wa.y + wa.height - b.y - 8);
+      const h = Math.max(130, Math.min(Math.round(p), maxH));
+      if (Math.abs(h - b.height) > 2) { overlay.setBounds({ ...b, height: h }); saveCfg(); }
+    }
     else if (kind === 'minimize') minimizeOverlay(true);
     else if (kind === 'mode') { // quick switch from the overlay: Realtime <-> Demo
       setMode(mode === 'demo' ? 'realtime' : 'demo');
